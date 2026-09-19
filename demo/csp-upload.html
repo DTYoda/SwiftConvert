@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'" />
+  <title>CSP upload fixture</title>
+  <style>
+    body { font: 15px/1.4 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+    .result { margin-top: 1rem; padding: .75rem; background: #f1f5f9; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+    .ok { background: #ecfdf5; }
+  </style>
+</head>
+<body>
+  <h1>Strict CSP upload</h1>
+  <p>PNG-only input under a CSP that blocks extension script tags. MAIN-world injection should still convert JPG → PNG.</p>
+  <p>Hooked: <code id="hook">…</code></p>
+  <input id="f" type="file" accept="image/png,.png" />
+  <div class="result" id="out">No file yet.</div>
+  <script>
+    setInterval(() => {
+      document.getElementById("hook").textContent =
+        document.documentElement.getAttribute("data-swiftconvert-hooked") === "1" ? "yes" : "no";
+    }, 200);
+    document.getElementById("f").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      const out = document.getElementById("out");
+      if (!file) return;
+      out.textContent = "name: " + file.name + "\ntype: " + file.type + "\nsize: " + file.size;
+      out.classList.toggle("ok", file.type === "image/png");
+    });
+  </script>
+</body>
+</html>
