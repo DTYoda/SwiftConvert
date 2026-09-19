@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwiftConvert Demo — PNG-only upload</title>
+    <style>
+      :root {
+        --ink: #0b1220;
+        --muted: #5b6b7c;
+        --line: #d7dee8;
+        --panel: #ffffff;
+        --bg: #eef3f8;
+        --accent: #0f766e;
+        --accent-soft: #ccfbf1;
+        --danger: #b91c1c;
+        --ok: #166534;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.5 "Source Sans 3", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(165deg, #d9e8ef 0%, transparent 42%),
+          linear-gradient(345deg, #e7f0e9 0%, transparent 40%),
+          var(--bg);
+        min-height: 100vh;
+      }
+      main { max-width: 720px; margin: 0 auto; padding: 40px 20px 64px; }
+      h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.03em; }
+      .lede { color: var(--muted); margin: 0 0 28px; max-width: 52ch; }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+      }
+      h2 { margin: 0 0 8px; font-size: 16px; }
+      .hint { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+      .accept {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        background: var(--accent-soft);
+        color: var(--accent);
+        padding: 3px 8px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+      }
+      input[type="file"] { display: block; width: 100%; }
+      .drop {
+        border: 1.5px dashed #94a3b8;
+        border-radius: 12px;
+        padding: 28px 16px;
+        text-align: center;
+        color: var(--muted);
+        transition: border-color .15s, background .15s;
+      }
+      .drop.over { border-color: var(--accent); background: #f0fdfa; color: var(--ink); }
+      .result {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px solid var(--line);
+        font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+        font-size: 12.5px;
+        white-space: pre-wrap;
+        min-height: 3.2em;
+      }
+      .result.ok { border-color: #86efac; background: #f0fdf4; color: var(--ok); }
+      .result.bad { border-color: #fca5a5; background: #fef2f2; color: var(--danger); }
+      .steps { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+      .steps li { margin: 4px 0; }
+      button {
+        margin-top: 10px;
+        background: var(--accent);
+        color: #fff;
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>SwiftConvert demo</h1>
+      <p class="lede">
+        This page only accepts <strong>PNG</strong>. With the extension enabled, choose
+        <code>sample.jpg</code> from this folder — SwiftConvert should convert it to PNG
+        before the page sees the file.
+      </p>
+
+      <section>
+        <h2>How to verify</h2>
+        <ol class="steps">
+          <li>Load the unpacked extension from the repo root (see README).</li>
+          <li>Open this page via a local static server or <code>file://</code> (extension needs host access).</li>
+          <li>Pick <code>demo/sample.jpg</code> below. The result should show <code>image/png</code>.</li>
+          <li>Optional: turn on “Preview before upload” in the popup and confirm the dialog.</li>
+        </ol>
+      </section>
+
+      <section>
+        <span class="accept">accept = image/png,.png</span>
+        <h2>Native file input</h2>
+        <p class="hint">Uses a standard <code>&lt;input type="file"&gt;</code> — the most common upload path.</p>
+        <input id="fileInput" type="file" accept="image/png,.png" />
+        <div class="result" id="inputResult">No file yet.</div>
+      </section>
+
+      <section>
+        <span class="accept">data-accept = .png</span>
+        <h2>Drag &amp; drop zone</h2>
+        <p class="hint">Drop <code>sample.jpg</code> here. Custom dropzones are rewritten when a target type can be inferred.</p>
+        <div class="drop" id="dropZone" data-accept=".png" tabindex="0">
+          Drop an image here
+        </div>
+        <div class="result" id="dropResult">No drop yet.</div>
+      </section>
+
+      <section>
+        <span class="accept">FormData + fetch</span>
+        <h2>Programmatic upload</h2>
+        <p class="hint">
+          Choose a file (PNG-only input), then click upload. The page builds <code>FormData</code>
+          and POSTs to a mock endpoint (request is intercepted client-side for inspection).
+        </p>
+        <input id="fetchInput" type="file" accept="image/png,.png" />
+        <button id="fetchBtn" type="button" disabled>Simulate fetch upload</button>
+        <div class="result" id="fetchResult">No upload yet.</div>
+      </section>
+    </main>
+
+    <script>
+      function describe(file) {
+        if (!file) return "No file.";
+        const ok = file.type === "image/png" || /\.png$/i.test(file.name);
+        return {
+          text:
+            "name: " + file.name + "\n" +
+            "type: " + (file.type || "(empty)") + "\n" +
+            "size: " + file.size + " bytes",
+          ok
+        };
+      }
+
+      function show(el, file) {
+        const d = describe(file);
+        el.textContent = d.text;
+        el.classList.toggle("ok", d.ok);
+        el.classList.toggle("bad", !d.ok);
+      }
+
+      const fileInput = document.getElementById("fileInput");
+      const inputResult = document.getElementById("inputResult");
+      fileInput.addEventListener("change", () => {
+        show(inputResult, fileInput.files && fileInput.files[0]);
+      });
+
+      const dropZone = document.getElementById("dropZone");
+      const dropResult = document.getElementById("dropResult");
+      ["dragenter", "dragover"].forEach((type) => {
+        dropZone.addEventListener(type, (e) => {
+          e.preventDefault();
+          dropZone.classList.add("over");
+        });
+      });
+      dropZone.addEventListener("dragleave", () => dropZone.classList.remove("over"));
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("over");
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        show(dropResult, file);
+      });
+
+      const fetchInput = document.getElementById("fetchInput");
+      const fetchBtn = document.getElementById("fetchBtn");
+      const fetchResult = document.getElementById("fetchResult");
+      fetchInput.addEventListener("change", () => {
+        fetchBtn.disabled = !(fetchInput.files && fetchInput.files.length);
+        if (fetchInput.files[0]) show(fetchResult, fetchInput.files[0]);
+      });
+
+      fetchBtn.addEventListener("click", async () => {
+        const file = fetchInput.files && fetchInput.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append("avatar", file, file.name);
+
+        // Mock: don't hit network — inspect what would be sent
+        const sent = fd.get("avatar");
+        show(fetchResult, sent);
+        fetchResult.textContent += "\n(form field ready for fetch/XHR)";
+
+        // Still exercise fetch hook with a data URL target
+        try {
+          await fetch("data:application/json,%7B%22ok%22%3Atrue%7D", {
+            method: "POST",
+            body: fd
+          });
+        } catch (_) {
+          /* ignore */
+        }
+      });
+    </script>
+  </body>
+</html>
