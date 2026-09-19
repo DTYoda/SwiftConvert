@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Seamlessly convert mismatched file uploads to the format a site expects.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],

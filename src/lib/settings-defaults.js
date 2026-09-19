@@ -3,7 +3,7 @@ export const DEFAULT_SETTINGS = {
   enabled: true,
   previewBeforeUpload: false,
   preferredImageFormat: "auto", // auto | png | jpeg | webp
-  showQuietBadge: false
+  showQuietBadge: true
 };
 
 export function mergeSettings(raw) {

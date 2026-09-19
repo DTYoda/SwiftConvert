@@ -5,14 +5,29 @@ const DEFAULTS = {
   enabled: true,
   previewBeforeUpload: false,
   preferredImageFormat: "auto",
-  showQuietBadge: false
+  showQuietBadge: true
 };
 
-chrome.runtime.onInstalled.addListener(() => {
+const SETTINGS_SCHEMA_VERSION = 2;
+
+chrome.runtime.onInstalled.addListener((details) => {
   chrome.storage.sync.get(null, (existing) => {
     const toSet = {};
     for (const [k, v] of Object.entries(DEFAULTS)) {
       if (existing[k] === undefined) toSet[k] = v;
+    }
+    // One-time: quiet toast became ON by default in v0.1.3. Enable it when
+    // upgrading from a build that still had the old false default stored,
+    // unless the user already bumped settingsSchemaVersion (they chose).
+    if (
+      details.reason === "update" &&
+      existing.settingsSchemaVersion == null &&
+      existing.showQuietBadge === false
+    ) {
+      toSet.showQuietBadge = true;
+    }
+    if (existing.settingsSchemaVersion == null || existing.settingsSchemaVersion < SETTINGS_SCHEMA_VERSION) {
+      toSet.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
     }
     if (Object.keys(toSet).length) chrome.storage.sync.set(toSet);
   });

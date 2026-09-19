@@ -15,7 +15,7 @@
     enabled: true,
     previewBeforeUpload: false,
     preferredImageFormat: "auto",
-    showQuietBadge: false
+    showQuietBadge: true
   };
 
   let settings = { ...DEFAULTS };

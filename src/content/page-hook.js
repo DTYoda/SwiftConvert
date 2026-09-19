@@ -18,7 +18,7 @@
     enabled: true,
     previewBeforeUpload: false,
     preferredImageFormat: "auto",
-    showQuietBadge: false
+    showQuietBadge: true
   };
 
   const pendingPreview = new Map();
@@ -489,7 +489,30 @@
         : event.target && event.target.parentElement) ||
       input;
 
-    return { accept, input, target };
+    // True when the gesture landed on the file input (or its label), not a
+    // surrounding custom dropzone that merely contains/associates an input.
+    const preferInput = dropTargetsFileInput(event, input, dropHost);
+
+    return { accept, input, target, dropHost, preferInput };
+  }
+
+  function dropTargetsFileInput(event, input, dropHost) {
+    if (!input) return false;
+    // Custom accept host that wraps/owns the input → treat as zone, not input.
+    if (dropHost && dropHost !== input && dropHost.contains && dropHost.contains(input)) {
+      return false;
+    }
+    const path =
+      typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+    for (const node of path) {
+      if (node === input) return true;
+      if (node instanceof HTMLLabelElement) {
+        const control = node.control;
+        if (control === input) return true;
+        if (node.htmlFor && document.getElementById(node.htmlFor) === input) return true;
+      }
+    }
+    return false;
   }
 
   function buildDataTransfer(files) {
@@ -540,15 +563,37 @@
     tryDispatch(plain);
   }
 
+  function fireInputChange(input) {
+    if (!input) return;
+    const change = new Event("change", { bubbles: true, cancelable: true });
+    Object.defineProperty(change, "__swiftconvert", { value: true });
+    silentAssign.add(input);
+    input.dispatchEvent(change);
+    setTimeout(() => silentAssign.delete(input), 0);
+  }
+
+  /**
+   * Deliver converted files once. Previously we always assigned the input AND
+   * dispatched a synthetic drop — sites that listen to both (or a dropzone +
+   * hidden input) uploaded the converted file twice (or original + converted).
+   *
+   * - Drop on a file input / its label → assign FileList + change only
+   * - Drop on a custom zone → synthetic drop only; silently sync nearby input
+   *   for form posts without firing change
+   */
   function deliverConvertedDrop(sourceEvent, files, ctx) {
-    const { input, target } = ctx;
-    if (input) {
+    const { input, target, preferInput } = ctx;
+
+    if (input && preferInput) {
       assignFiles(input, files);
-      const change = new Event("change", { bubbles: true, cancelable: true });
-      Object.defineProperty(change, "__swiftconvert", { value: true });
-      silentAssign.add(input);
-      input.dispatchEvent(change);
-      setTimeout(() => silentAssign.delete(input), 0);
+      fireInputChange(input);
+      return;
+    }
+
+    if (input) {
+      // Keep input.files in sync for form submits, but do not fire change —
+      // the synthetic drop is the single delivery path for zone handlers.
+      assignFiles(input, files);
     }
     const dropTarget = target || input || sourceEvent.target;
     dispatchSyntheticDrop(dropTarget, files, sourceEvent);
@@ -748,5 +793,5 @@
   }
   refreshCoverageMarks();
 
-  postToBridge("hooked", { version: "0.1.2" });
+  postToBridge("hooked", { version: "0.1.3" });
 })();

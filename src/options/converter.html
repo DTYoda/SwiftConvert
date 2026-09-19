@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwiftConvert — Converter</title>
+    <link rel="stylesheet" href="options.css" />
+    <link rel="stylesheet" href="converter.css" />
+  </head>
+  <body class="converter-page">
+    <main class="wrap converter-wrap">
+      <header class="brand compact">
+        <img src="../../icons/icon32.png" alt="" width="28" height="28" />
+        <div>
+          <h1>Manual converter</h1>
+          <p class="tag">Convert, download, or drag onto a webpage</p>
+        </div>
+      </header>
+
+      <section class="panel converter-panel" id="manualConverter">
+        <div class="cv-drop" data-cv-drop tabindex="0">
+          <input type="file" data-cv-file accept="image/*" hidden />
+          <p class="cv-drop-label">Drop an image here or click to choose</p>
+          <p class="cv-name" data-cv-name>No file selected</p>
+        </div>
+
+        <label class="row stack cv-format">
+          <span>
+            <strong>Target format</strong>
+            <small>Used when the site does not force a type</small>
+          </span>
+          <select data-cv-format>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </label>
+
+        <div class="cv-actions">
+          <button type="button" class="cv-btn primary" data-cv-convert disabled>Convert</button>
+          <button type="button" class="cv-btn" data-cv-download disabled>Download</button>
+        </div>
+
+        <div
+          class="cv-drag"
+          data-cv-drag
+          draggable="false"
+          aria-disabled="true"
+          title="Drag the converted file onto a page upload zone"
+        >
+          <strong>Drag out</strong>
+          <span>Drag this handle onto a webpage upload field</span>
+        </div>
+
+        <p class="cv-status" data-cv-status></p>
+        <p class="cv-note">
+          Chrome closes the toolbar popup when you drag away from it, which cancels
+          the gesture. This panel stays open so drag-out can reach the page.
+          Host pages must accept the dropped file type (or have SwiftConvert enabled).
+        </p>
+      </section>
+    </main>
+
+    <script src="../lib/mime.js"></script>
+    <script src="../lib/converters/image.js"></script>
+    <script src="../lib/converters/stubs.js"></script>
+    <script src="../lib/converters/registry.js"></script>
+    <script src="converter.js"></script>
+  </body>
+</html>

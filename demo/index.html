@@ -127,6 +127,20 @@
       </section>
 
       <section>
+        <span class="accept">data-accept + hidden input</span>
+        <h2>Drop zone with associated input</h2>
+        <p class="hint">
+          Common pattern: custom drop UI plus a hidden <code>&lt;input type="file"&gt;</code>.
+          SwiftConvert must deliver the converted file <strong>once</strong> (not change + drop).
+        </p>
+        <div class="drop" id="comboZone" data-accept=".png" tabindex="0">
+          Drop an image here
+          <input id="comboInput" type="file" accept="image/png,.png" style="display:none" />
+        </div>
+        <div class="result" id="comboResult">No drop yet.</div>
+      </section>
+
+      <section>
         <span class="accept">FormData + fetch</span>
         <h2>Programmatic upload</h2>
         <p class="hint">
@@ -202,6 +216,45 @@
         dropZone.classList.remove("over");
         const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
         show(dropResult, file);
+      });
+
+      // Combo: dropzone + hidden input — counts deliveries to catch duplicates.
+      const comboZone = document.getElementById("comboZone");
+      const comboInput = document.getElementById("comboInput");
+      const comboResult = document.getElementById("comboResult");
+      let comboDeliveries = [];
+      function showCombo() {
+        const lines = comboDeliveries.map((d, i) => {
+          return "#" + (i + 1) + " via " + d.via + "\n" + describe(d.file).text;
+        });
+        const count = comboDeliveries.length;
+        const last = comboDeliveries[comboDeliveries.length - 1];
+        const ok = count === 1 && last && describe(last.file).ok;
+        comboResult.textContent =
+          "deliveries: " + count + (count === 1 ? " (ok)" : count > 1 ? " (DUPLICATE)" : "") +
+          (lines.length ? "\n\n" + lines.join("\n\n") : "");
+        comboResult.classList.toggle("ok", ok);
+        comboResult.classList.toggle("bad", count > 1 || (count === 1 && last && !describe(last.file).ok));
+      }
+      ["dragenter", "dragover"].forEach((type) => {
+        comboZone.addEventListener(type, (e) => {
+          e.preventDefault();
+          comboZone.classList.add("over");
+          if (type === "dragenter") comboDeliveries = [];
+        });
+      });
+      comboZone.addEventListener("dragleave", () => comboZone.classList.remove("over"));
+      comboZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        comboZone.classList.remove("over");
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) comboDeliveries.push({ via: "drop", file });
+        showCombo();
+      });
+      comboInput.addEventListener("change", () => {
+        const file = comboInput.files && comboInput.files[0];
+        if (file) comboDeliveries.push({ via: "change", file });
+        showCombo();
       });
 
       const fetchInput = document.getElementById("fetchInput");
