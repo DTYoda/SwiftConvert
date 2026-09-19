@@ -46,7 +46,8 @@
     "src/content/page-hook.js"
   ];
 
-  const LOGO_URL = chrome.runtime.getURL("icons/icon16.png");
+  // 32px source displayed at ~18px keeps badges sharp on retina
+  const LOGO_URL = chrome.runtime.getURL("icons/icon32.png");
 
   function isPageHooked() {
     try {
@@ -413,7 +414,7 @@
       toast = document.createElement("div");
       toast.id = "sc-toast";
       toast.innerHTML = `<img alt="" width="20" height="20" /><span></span>`;
-      toast.querySelector("img").src = chrome.runtime.getURL("icons/icon32.png");
+      toast.querySelector("img").src = chrome.runtime.getURL("icons/icon48.png");
       root.appendChild(toast);
     }
     toast.querySelector("span").textContent = formatQuietMessage(payload);
@@ -501,7 +502,7 @@
             <button type="button" class="primary" id="sc-accept">Upload converted</button>
           </div>
         </div>`;
-      panel.querySelector("img").src = chrome.runtime.getURL("icons/icon32.png");
+      panel.querySelector("img").src = chrome.runtime.getURL("icons/icon48.png");
       root.appendChild(panel);
     }
 

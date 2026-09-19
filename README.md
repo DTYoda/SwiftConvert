@@ -2,7 +2,7 @@
 
 Browser extension that intercepts file uploads and converts mismatched files to the format a site expects — for example JPG → PNG, HEIC → JPEG, PDF → PNG, or DOCX → text — and can **auto-compress** oversized images when a size limit is detected.
 
-<img src="icons/icon128.png" alt="SwiftConvert logo" width="64" height="64" />
+<img src="icons/icon256.png" alt="SwiftConvert logo" width="64" height="64" />
 
 Invisible by default when enabled. Optional preview-before-upload for quality checks on complex converts. Quiet conversion toast is **on by default**.
 
@@ -90,7 +90,7 @@ Covered fields show the SwiftConvert logo mark when the extension is enabled.
 
 ```
 manifest.json
-icons/                 # PNG set + SVG source
+icons/                 # PNG set (16–512) + SVG source; regenerate via icons/src
 src/
   background/
   content/             # page-hook (MAIN) + bridge (isolated)
@@ -101,6 +101,16 @@ src/
   options/             # popup, options, converter + compressor
 demo/
 ```
+
+## Regenerating icons
+
+PNG toolbar/store assets are rendered from `icons/src/logo.svg` (and `mark.svg` for 16×16):
+
+```bash
+cd icons/src && npm install && npm run rasterize
+```
+
+That writes `icon16.png` … `icon512.png` via resvg (vector → bitmap) and Lanczos downscales — never upscaling a tiny PNG.
 
 ## Vendored libraries
 

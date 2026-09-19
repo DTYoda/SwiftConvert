@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
@@ -14,7 +14,8 @@
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
-      "48": "icons/icon48.png"
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "options_ui": {
@@ -25,7 +26,8 @@
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "128": "icons/icon128.png",
+    "256": "icons/icon256.png"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';"
@@ -80,7 +82,9 @@
         "icons/icon32.png",
         "icons/icon48.png",
         "icons/icon128.png",
-        "icons/src/mark.svg"
+        "icons/icon256.png",
+        "icons/src/mark.svg",
+        "icons/src/logo.svg"
       ],
       "matches": ["<all_urls>"]
     }
