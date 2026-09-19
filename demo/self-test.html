@@ -16,6 +16,8 @@
     <script src="/src/lib/vendor/mammoth.browser.min.js"></script>
     <script src="/src/lib/mime.js"></script>
     <script src="/src/lib/converters/image.js"></script>
+    <script src="/src/lib/compress.js"></script>
+    <script src="/src/lib/size-limit.js"></script>
     <script src="/src/lib/converters/pdf-write.js"></script>
     <script src="/src/lib/converters/heic.js"></script>
     <script src="/src/lib/converters/docx.js"></script>
@@ -106,6 +108,36 @@
           if (converted.type !== "image/jpeg") fail("heic type " + converted.type);
           if (converted.size < 50) fail("heic too small");
           ok("HEIC → JPEG (" + converted.size + " bytes)");
+        }
+
+        // 6) Size-limit inference
+        {
+          const bytes = SwiftConvertSizeLimit.parseSizeToBytes("80 KB");
+          if (bytes !== 80 * 1024) fail("parse 80 KB → " + bytes);
+          const mb = SwiftConvertSizeLimit.parseSizeToBytes("2MB");
+          if (mb !== 2 * 1024 * 1024) fail("parse 2MB → " + mb);
+          const fromCopy = SwiftConvertSizeLimit.scanTextForLimit("Max upload size: 80 KB");
+          if (!fromCopy || fromCopy.bytes !== 80 * 1024) fail("scan copy");
+          const input = document.createElement("input");
+          input.type = "file";
+          input.setAttribute("data-max-size", "80000");
+          document.body.appendChild(input);
+          const inferred = SwiftConvertSizeLimit.inferMaxBytes({ input });
+          input.remove();
+          if (!inferred || inferred.bytes !== 80000) fail("infer data-max-size");
+          ok("Size-limit inference");
+        }
+
+        // 7) Compress large JPEG under budget
+        {
+          const file = await loadFile("/demo/sample-large.jpg", "sample-large.jpg", "image/jpeg");
+          if (file.size <= 80000) fail("fixture not large enough: " + file.size);
+          const result = await SwiftConvertCompress.compressImageToFit(file, 80000, {
+            qualityPref: "balanced"
+          });
+          if (!result.compressed) fail("expected compression");
+          if (result.file.size > 80000) fail("still over budget: " + result.file.size);
+          ok("Compress to ≤80KB (" + file.size + " → " + result.file.size + ")");
         }
 
         lines.push("ALL PASS");

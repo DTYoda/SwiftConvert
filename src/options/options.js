@@ -2,14 +2,22 @@ const DEFAULTS = {
   enabled: true,
   previewBeforeUpload: false,
   preferredImageFormat: "auto",
-  showQuietBadge: true
+  showQuietBadge: true,
+  autoCompress: true,
+  useDefaultMaxWhenNoLimit: false,
+  defaultMaxSizeMB: 2,
+  compressQuality: "balanced"
 };
 
 const fields = {
   enabled: document.getElementById("enabled"),
   previewBeforeUpload: document.getElementById("previewBeforeUpload"),
   showQuietBadge: document.getElementById("showQuietBadge"),
-  preferredImageFormat: document.getElementById("preferredImageFormat")
+  preferredImageFormat: document.getElementById("preferredImageFormat"),
+  autoCompress: document.getElementById("autoCompress"),
+  useDefaultMaxWhenNoLimit: document.getElementById("useDefaultMaxWhenNoLimit"),
+  defaultMaxSizeMB: document.getElementById("defaultMaxSizeMB"),
+  compressQuality: document.getElementById("compressQuality")
 };
 
 const status = document.getElementById("status");
@@ -22,6 +30,15 @@ function readForm() {
   if (fields.previewBeforeUpload) data.previewBeforeUpload = fields.previewBeforeUpload.checked;
   if (fields.showQuietBadge) data.showQuietBadge = fields.showQuietBadge.checked;
   if (fields.preferredImageFormat) data.preferredImageFormat = fields.preferredImageFormat.value;
+  if (fields.autoCompress) data.autoCompress = fields.autoCompress.checked;
+  if (fields.useDefaultMaxWhenNoLimit) {
+    data.useDefaultMaxWhenNoLimit = fields.useDefaultMaxWhenNoLimit.checked;
+  }
+  if (fields.defaultMaxSizeMB) {
+    const n = Number(fields.defaultMaxSizeMB.value);
+    data.defaultMaxSizeMB = Number.isFinite(n) && n > 0 ? n : DEFAULTS.defaultMaxSizeMB;
+  }
+  if (fields.compressQuality) data.compressQuality = fields.compressQuality.value;
   return data;
 }
 
@@ -33,6 +50,17 @@ function writeForm(data) {
   if (fields.showQuietBadge) fields.showQuietBadge.checked = Boolean(data.showQuietBadge);
   if (fields.preferredImageFormat) {
     fields.preferredImageFormat.value = data.preferredImageFormat || "auto";
+  }
+  if (fields.autoCompress) fields.autoCompress.checked = data.autoCompress !== false;
+  if (fields.useDefaultMaxWhenNoLimit) {
+    fields.useDefaultMaxWhenNoLimit.checked = Boolean(data.useDefaultMaxWhenNoLimit);
+  }
+  if (fields.defaultMaxSizeMB) {
+    fields.defaultMaxSizeMB.value =
+      data.defaultMaxSizeMB != null ? data.defaultMaxSizeMB : DEFAULTS.defaultMaxSizeMB;
+  }
+  if (fields.compressQuality) {
+    fields.compressQuality.value = data.compressQuality || "balanced";
   }
   syncDetailState();
 }

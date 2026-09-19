@@ -13,7 +13,11 @@
     enabled: true,
     previewBeforeUpload: false,
     preferredImageFormat: "auto",
-    showQuietBadge: true
+    showQuietBadge: true,
+    autoCompress: true,
+    useDefaultMaxWhenNoLimit: false,
+    defaultMaxSizeMB: 2,
+    compressQuality: "balanced"
   };
 
   let settings = { ...DEFAULTS };
@@ -31,9 +35,11 @@
   const pendingHost = new Map();
   let hostMsgSeq = 0;
 
-  const PAGE_SCRIPTS = [
+    const PAGE_SCRIPTS = [
     "src/lib/mime.js",
     "src/lib/converters/image.js",
+    "src/lib/compress.js",
+    "src/lib/size-limit.js",
     "src/lib/converters/pdf-write.js",
     "src/lib/converters/stubs.js",
     "src/lib/converters/registry.js",
@@ -410,10 +416,38 @@
       toast.querySelector("img").src = chrome.runtime.getURL("icons/icon32.png");
       root.appendChild(toast);
     }
-    toast.querySelector("span").textContent = `Converted ${payload.from} → ${payload.to}`;
+    toast.querySelector("span").textContent = formatQuietMessage(payload);
     toast.classList.add("show");
     clearTimeout(quietTimer);
     quietTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  function formatQuietMessage(payload) {
+    if (!payload) return "SwiftConvert";
+    if (payload.compressed && payload.from && payload.to && payload.from !== payload.to) {
+      const sizes =
+        payload.fromBytes && payload.toBytes
+          ? ` · ${fmtKb(payload.fromBytes)} → ${fmtKb(payload.toBytes)}`
+          : "";
+      return `Converted & compressed ${payload.from} → ${payload.to}${sizes}`;
+    }
+    if (payload.compressed) {
+      const sizes =
+        payload.fromBytes && payload.toBytes
+          ? ` ${fmtKb(payload.fromBytes)} → ${fmtKb(payload.toBytes)}`
+          : "";
+      return `Compressed${sizes}`;
+    }
+    if (payload.from && payload.to) {
+      return `Converted ${payload.from} → ${payload.to}`;
+    }
+    return "SwiftConvert";
+  }
+
+  function fmtKb(n) {
+    if (!(n > 0)) return "";
+    if (n < 1024) return n + " B";
+    return (n / 1024).toFixed(1) + " KB";
   }
 
   function showPreview(payload) {

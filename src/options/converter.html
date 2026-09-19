@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SwiftConvert — Converter</title>
+    <title>SwiftConvert — Tools</title>
     <link rel="stylesheet" href="options.css" />
     <link rel="stylesheet" href="converter.css" />
   </head>
@@ -12,12 +12,17 @@
       <header class="brand compact">
         <img src="../../icons/icon32.png" alt="SwiftConvert" width="28" height="28" />
         <div>
-          <h1>Manual converter</h1>
-          <p class="tag">Convert, download, or drag onto a webpage</p>
+          <h1>SwiftConvert tools</h1>
+          <p class="tag">Convert or compress, then download / drag out</p>
         </div>
       </header>
 
-      <section class="panel converter-panel" id="manualConverter">
+      <div class="tool-tabs" role="tablist" aria-label="Tools">
+        <button type="button" class="tool-tab" role="tab" id="tabConvert" aria-selected="true" aria-controls="manualConverter" data-tool-tab="convert">Convert</button>
+        <button type="button" class="tool-tab" role="tab" id="tabCompress" aria-selected="false" aria-controls="manualCompressor" data-tool-tab="compress">Compress</button>
+      </div>
+
+      <section class="panel converter-panel tool-panel" id="manualConverter" role="tabpanel" aria-labelledby="tabConvert">
         <div class="cv-drop" data-cv-drop tabindex="0">
           <input
             type="file"
@@ -67,18 +72,112 @@
           Host pages must accept the dropped file type (or have SwiftConvert enabled).
         </p>
       </section>
+
+      <section class="panel converter-panel tool-panel" id="manualCompressor" role="tabpanel" aria-labelledby="tabCompress" hidden>
+        <div class="cv-drop" data-cp-drop tabindex="0">
+          <input type="file" data-cp-file accept="image/*" hidden />
+          <p class="cv-drop-label">Drop an image — or click to choose</p>
+          <p class="cv-name" data-cp-name>No file selected</p>
+        </div>
+
+        <div class="cv-preview" data-cp-preview></div>
+        <p class="cp-sizes" data-cp-sizes></p>
+
+        <label class="row stack cv-format">
+          <span>
+            <strong>Mode</strong>
+            <small>Target file size, or fixed quality + optional max dimensions</small>
+          </span>
+          <select data-cp-mode>
+            <option value="size">Fit target size</option>
+            <option value="quality">Quality + dimensions</option>
+          </select>
+        </label>
+
+        <div class="cp-grid">
+          <label data-cp-for="size">
+            <strong>Target size (KB)</strong>
+            <input type="number" data-cp-target-kb min="8" max="10240" step="1" value="200" />
+          </label>
+          <label data-cp-for="quality">
+            <strong>Quality %</strong>
+            <input type="number" data-cp-quality min="10" max="100" step="1" value="80" />
+          </label>
+          <label data-cp-for="always">
+            <strong>Max width</strong>
+            <input type="number" data-cp-max-w min="0" max="10000" step="1" placeholder="none" />
+          </label>
+          <label data-cp-for="always">
+            <strong>Max height</strong>
+            <input type="number" data-cp-max-h min="0" max="10000" step="1" placeholder="none" />
+          </label>
+          <label data-cp-for="always" style="grid-column: 1 / -1">
+            <strong>Output format</strong>
+            <select data-cp-format>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/webp">WebP</option>
+              <option value="image/png">PNG</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="cv-actions">
+          <button type="button" class="cv-btn primary" data-cp-run disabled>Compress</button>
+          <button type="button" class="cv-btn" data-cp-download disabled>Download</button>
+        </div>
+
+        <div
+          class="cv-drag"
+          data-cp-drag
+          draggable="false"
+          aria-disabled="true"
+          title="Drag the compressed file onto a page upload zone"
+        >
+          <strong>Drag out</strong>
+          <span>Drag this handle onto a webpage upload field</span>
+        </div>
+
+        <p class="cv-status" data-cp-status></p>
+        <p class="cv-note">
+          Auto-compress on upload uses the same engine when a site size limit is detected.
+          Configure defaults under Settings.
+        </p>
+      </section>
     </main>
 
     <script src="../lib/vendor/heic2any.min.js"></script>
     <script src="../lib/vendor/mammoth.browser.min.js"></script>
     <script src="../lib/mime.js"></script>
     <script src="../lib/converters/image.js"></script>
+    <script src="../lib/compress.js"></script>
     <script src="../lib/converters/pdf-write.js"></script>
     <script src="../lib/converters/heic.js"></script>
     <script src="../lib/converters/docx.js"></script>
     <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
+    <script>
+      (function () {
+        const tabs = document.querySelectorAll("[data-tool-tab]");
+        const convert = document.getElementById("manualConverter");
+        const compress = document.getElementById("manualCompressor");
+        function show(which) {
+          const isCompress = which === "compress";
+          convert.hidden = isCompress;
+          compress.hidden = !isCompress;
+          tabs.forEach((t) => {
+            const on = t.getAttribute("data-tool-tab") === which;
+            t.setAttribute("aria-selected", on ? "true" : "false");
+          });
+          if (isCompress) history.replaceState(null, "", "#compress");
+          else history.replaceState(null, "", "#convert");
+        }
+        tabs.forEach((t) =>
+          t.addEventListener("click", () => show(t.getAttribute("data-tool-tab")))
+        );
+        show(location.hash === "#compress" ? "compress" : "convert");
+      })();
+    </script>
     <script type="module" src="boot-converters.js"></script>
   </body>
 </html>

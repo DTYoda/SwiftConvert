@@ -114,7 +114,8 @@
         Quiet upload matching for the browser. This demo accepts <strong>PNG</strong> on the
         main fixtures — with the extension enabled, pick <code>sample.jpg</code> or
         <code>sample.heic</code> and SwiftConvert converts before the page sees the file.
-        Also try PDF→PNG and DOCX→text fields below.
+        Also try PDF→PNG, DOCX→text, and the <strong>80 KB auto-compress</strong> fixture
+        with <code>sample-large.jpg</code>.
       </p>
 
       <section>
@@ -169,6 +170,25 @@
         <input id="fetchInput" type="file" accept="image/png,.png" />
         <button id="fetchBtn" type="button" disabled>Simulate fetch upload</button>
         <div class="result" id="fetchResult">No upload yet.</div>
+      </section>
+
+      <section>
+        <span class="accept">data-max-size = 80000 · max 80 KB</span>
+        <h2>Auto-compress (size limit)</h2>
+        <p class="hint">
+          This field accepts JPEG and states a max of <strong>80 KB</strong>
+          (<code>data-max-size="80000"</code> + nearby copy). Choose
+          <code>sample-large.jpg</code> (~500 KB). With auto-compress enabled,
+          the result should be ≤ 80&nbsp;KB.
+        </p>
+        <p class="hint" style="margin-top:-8px">Max upload size: 80 KB</p>
+        <input
+          id="compressInput"
+          type="file"
+          accept="image/jpeg,.jpg,.jpeg"
+          data-max-size="80000"
+        />
+        <div class="result" id="compressResult">No file yet.</div>
       </section>
 
       <section>
@@ -342,6 +362,26 @@
       });
       labelInput.addEventListener("change", () => {
         show(labelResult, labelInput.files && labelInput.files[0]);
+      });
+
+      const compressInput = document.getElementById("compressInput");
+      const compressResult = document.getElementById("compressResult");
+      compressInput.addEventListener("change", () => {
+        const file = compressInput.files && compressInput.files[0];
+        if (!file) {
+          compressResult.textContent = "No file.";
+          compressResult.classList.remove("ok", "bad");
+          return;
+        }
+        const under = file.size <= 80000;
+        const typeOk = file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name);
+        compressResult.textContent =
+          "name: " + file.name + "\n" +
+          "type: " + (file.type || "(empty)") + "\n" +
+          "size: " + file.size + " bytes" +
+          (under ? " (≤ 80 KB ✓)" : " (still over 80 KB)");
+        compressResult.classList.toggle("ok", under && typeOk);
+        compressResult.classList.toggle("bad", !(under && typeOk));
       });
 
       const dynBtn = document.getElementById("dynBtn");

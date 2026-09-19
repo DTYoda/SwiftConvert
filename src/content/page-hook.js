@@ -12,13 +12,19 @@
 
   const Mime = window.SwiftConvertMime;
   const Registry = window.SwiftConvertRegistry;
+  const Compress = window.SwiftConvertCompress;
+  const SizeLimit = window.SwiftConvertSizeLimit;
 
   const CHANNEL = "swiftconvert";
   let settings = {
     enabled: true,
     previewBeforeUpload: false,
     preferredImageFormat: "auto",
-    showQuietBadge: true
+    showQuietBadge: true,
+    autoCompress: true,
+    useDefaultMaxWhenNoLimit: false,
+    defaultMaxSizeMB: 2,
+    compressQuality: "balanced"
   };
 
   const pendingPreview = new Map();
@@ -136,47 +142,101 @@
     if (!settings.enabled || !file) return file;
     const accept = acceptFromContext(ctx);
     const target = Mime.inferTargetMime(file, accept, settings.preferredImageFormat);
-    if (!target) return file;
-    if (!Registry.canHandle(file, target)) {
+
+    let working = file;
+    let didConvert = false;
+    let didCompress = false;
+    let compressMeta = null;
+
+    if (target && Registry.canHandle(file, target)) {
+      try {
+        if (Registry.needsHost && Registry.needsHost(file, target)) {
+          working = await requestHostConvert(file, target);
+        } else {
+          working = await Registry.convertFile(file, target);
+        }
+        didConvert = working !== file;
+      } catch (err) {
+        postToBridge("error", { message: String(err && err.message ? err.message : err) });
+        working = file;
+      }
+    } else if (target && !Registry.canHandle(file, target)) {
       postToBridge("skip", {
         reason: "no-converter",
         name: file.name,
         from: Mime.mimeFromFile(file),
         to: target
       });
-      return file;
     }
 
-    let converted;
-    try {
-      if (Registry.needsHost && Registry.needsHost(file, target)) {
-        converted = await requestHostConvert(file, target);
-      } else {
-        converted = await Registry.convertFile(file, target);
+    // After format conversion (or if already matching), compress to fit size limits.
+    if (settings.autoCompress && Compress && SizeLimit && Compress.canCompress(working)) {
+      const limit = SizeLimit.resolveMaxBytes(ctx, settings);
+      if (limit && limit.bytes > 0 && working.size > limit.bytes) {
+        try {
+          const result = await Compress.compressImageToFit(working, limit.bytes, {
+            qualityPref: settings.compressQuality || "balanced",
+            mime: Mime.mimeFromFile(working)
+          });
+          if (result.compressed) {
+            working = result.file;
+            didCompress = true;
+            compressMeta = {
+              fromBytes: result.fromBytes,
+              toBytes: result.toBytes,
+              limitBytes: limit.bytes,
+              limitSource: limit.source
+            };
+          }
+        } catch (err) {
+          postToBridge("error", {
+            message: "Compress: " + String(err && err.message ? err.message : err)
+          });
+        }
       }
-    } catch (err) {
-      postToBridge("error", { message: String(err && err.message ? err.message : err) });
-      return file;
     }
 
-    if (settings.previewBeforeUpload) {
-      const ok = await requestPreview(file, converted, target);
-      if (!ok) return file; // user declined — keep original
+    if (!didConvert && !didCompress) return file;
+
+    if (settings.previewBeforeUpload && didConvert) {
+      const ok = await requestPreview(file, working, target || Mime.mimeFromFile(working));
+      if (!ok) return file;
     } else if (settings.showQuietBadge) {
-      postToBridge("converted-quiet", {
-        from: file.name,
-        to: converted.name,
-        target
-      });
+      if (didConvert && didCompress) {
+        postToBridge("converted-quiet", {
+          from: file.name,
+          to: working.name,
+          target: target || Mime.mimeFromFile(working),
+          compressed: true,
+          fromBytes: compressMeta && compressMeta.fromBytes,
+          toBytes: compressMeta && compressMeta.toBytes
+        });
+      } else if (didConvert) {
+        postToBridge("converted-quiet", {
+          from: file.name,
+          to: working.name,
+          target
+        });
+      } else if (didCompress) {
+        postToBridge("converted-quiet", {
+          from: file.name,
+          to: working.name,
+          compressed: true,
+          fromBytes: compressMeta && compressMeta.fromBytes,
+          toBytes: compressMeta && compressMeta.toBytes
+        });
+      }
     }
 
     postToBridge("converted", {
       from: file.name,
-      to: converted.name,
+      to: working.name,
       fromMime: Mime.mimeFromFile(file),
-      toMime: target
+      toMime: Mime.mimeFromFile(working),
+      compressed: didCompress,
+      compressMeta
     });
-    return converted;
+    return working;
   }
 
   async function requestHostConvert(file, targetMime) {
@@ -436,6 +496,20 @@
     });
   }
 
+  function filesNeedCompress(files, ctx) {
+    if (!settings.autoCompress || !Compress || !SizeLimit) return false;
+    const limit = SizeLimit.resolveMaxBytes(ctx, settings);
+    if (!limit || !(limit.bytes > 0)) return false;
+    return Array.from(files || []).some(
+      (f) => Compress.canCompress(f) && f.size > limit.bytes
+    );
+  }
+
+  function filesNeedWork(files, ctx) {
+    const accept = (ctx && ctx.accept) || acceptFromContext(ctx) || "";
+    return filesNeedConversion(files, accept) || filesNeedCompress(files, ctx);
+  }
+
   // Capture-phase: stop the original change when we will convert, then re-dispatch
   // after files are replaced so frameworks only see the converted FileList.
   function onFileEvent(event) {
@@ -447,7 +521,8 @@
 
     const snapshot = nativeFilesGetter ? nativeFilesGetter.call(t) : t.files;
     const accept = effectiveAccept(t);
-    if (!filesNeedConversion(snapshot, accept)) return;
+    const ctx = { input: t, accept };
+    if (!filesNeedWork(snapshot, ctx)) return;
 
     event.stopImmediatePropagation();
     event.stopPropagation();
@@ -654,11 +729,7 @@
 
       const ctx = resolveDropContext(event);
       const originals = Array.from(dt.files);
-      const maybeNeeded = originals.some((f) => {
-        const t = Mime.inferTargetMime(f, ctx.accept, settings.preferredImageFormat);
-        return t && Registry.canHandle(f, t);
-      });
-      if (!maybeNeeded) {
+      if (!filesNeedWork(originals, ctx)) {
         if (ctx.input) restoreAcceptAfterPicker(ctx.input);
         return;
       }
@@ -781,9 +852,22 @@
 
   async function rewriteFormData(fd) {
     const next = new FormData();
+    // Best-effort: use focused/covered file input for accept + size limit context
+    const active = document.activeElement;
+    let input =
+      active instanceof HTMLInputElement && active.type === "file" ? active : null;
+    if (!input) {
+      input = document.querySelector(
+        'input[type="file"][data-swiftconvert-covered="1"]'
+      );
+    }
+    const ctx = {
+      input,
+      accept: input ? effectiveAccept(input) : ""
+    };
     for (const [key, val] of fd.entries()) {
       if (val instanceof File) {
-        const converted = await maybeConvertFile(val, { accept: "" });
+        const converted = await maybeConvertFile(val, ctx);
         next.append(key, converted, converted.name);
       } else {
         next.append(key, val);
@@ -838,5 +922,5 @@
   }
   refreshCoverageMarks();
 
-  postToBridge("hooked", { version: "0.1.3" });
+  postToBridge("hooked", { version: "0.3.0" });
 })();

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.2.0",
-  "description": "Seamlessly convert mismatched file uploads to the format a site expects.",
+  "version": "0.3.0",
+  "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -36,6 +36,8 @@
       "js": [
         "src/lib/mime.js",
         "src/lib/converters/image.js",
+        "src/lib/compress.js",
+        "src/lib/size-limit.js",
         "src/lib/converters/pdf-write.js",
         "src/lib/converters/stubs.js",
         "src/lib/converters/registry.js",
@@ -61,6 +63,8 @@
         "src/lib/mime.js",
         "src/lib/converters/registry.js",
         "src/lib/converters/image.js",
+        "src/lib/compress.js",
+        "src/lib/size-limit.js",
         "src/lib/converters/pdf-write.js",
         "src/lib/converters/stubs.js",
         "src/convert/host.html",
