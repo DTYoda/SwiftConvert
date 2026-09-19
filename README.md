@@ -28,7 +28,7 @@ Firefox (MV3): open `about:debugging` → This Firefox → Load Temporary Add-on
 
 Converter-only smoke test (no extension): [http://127.0.0.1:8765/demo/self-test.html](http://127.0.0.1:8765/demo/self-test.html) should show `PASS`.
 
-Also try drag-and-drop, FormData/fetch, **label-triggered**, and **dynamically created** inputs on the same page.
+Also try drag-and-drop (onto the drop zone **and** the native file input), FormData/fetch, **label-triggered**, and **dynamically created** inputs on the same page. Covered fields show a small **SC** badge when the extension is enabled.
 
 ### After updating the extension
 
@@ -45,7 +45,8 @@ Open the extension popup → enable **Preview first** (or full Options). The nex
 | `<input type="file">` (picker + change) | Supported — `accept` neutralized before dialog |
 | Label / `input.click()` / `showPicker()` | Supported |
 | Dynamically created inputs | Supported (prototype + capture hooks) |
-| Drag & drop (with `accept` / `data-accept`) | Supported |
+| Drag & drop (file input + `accept` / `data-accept` zones) | Supported — intercepts before the browser rejects mismatched types |
+| Covered-field badge | Small **SC** marker on autoconvert fields when enabled |
 | `FormData` + `fetch` / XHR | Best-effort (files already converted on inputs pass through; fetch/XHR can await in-flight converts) |
 | Images → PNG / JPEG / WebP | Supported (canvas) |
 | DOCX / PDF | Stubbed in the converter registry — not implemented yet |

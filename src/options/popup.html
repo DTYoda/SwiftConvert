@@ -6,17 +6,51 @@
     <title>SwiftConvert</title>
     <link rel="stylesheet" href="options.css" />
     <style>
-      body { min-width: 280px; margin: 0; }
-      .wrap { padding: 14px 16px 16px; }
-      h1 { font-size: 16px; margin: 0; }
-      .tag { font-size: 12px; }
-      .panel { margin-top: 12px; }
-      .links { display: flex; gap: 8px; margin-top: 12px; }
-      .links a {
-        flex: 1; text-align: center; text-decoration: none;
-        background: #2563eb; color: #fff; padding: 8px; border-radius: 8px; font-size: 13px;
+      body {
+        min-width: 300px;
+        max-width: 320px;
+        margin: 0;
+        min-height: 0;
+        background:
+          radial-gradient(420px 180px at 0% 0%, #ccfbf1 0%, transparent 55%),
+          radial-gradient(380px 160px at 100% 0%, #e2e8f0 0%, transparent 50%),
+          #f8fafc;
       }
-      .links a.secondary { background: #e2e8f0; color: #0f172a; }
+      .wrap { padding: 14px 14px 12px; }
+      h1 { font-size: 16px; margin: 0; letter-spacing: -0.02em; }
+      .tag { font-size: 12px; margin: 2px 0 0; }
+      .panel { margin-top: 12px; padding: 4px 12px; }
+      .row { padding: 10px 0; gap: 12px; }
+      .row small { font-size: 11px; line-height: 1.35; }
+      .links {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .links a {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        background: #0f766e;
+        color: #fff;
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .links a.secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .status {
+        margin: 8px 0 0;
+        text-align: center;
+      }
+      .master {
+        align-items: center;
+      }
+      .master strong { font-size: 14px; }
+      .dimmed { opacity: 0.45; pointer-events: none; }
     </style>
   </head>
   <body>
@@ -25,23 +59,51 @@
         <img src="../../icons/icon32.png" alt="" width="28" height="28" />
         <div>
           <h1>SwiftConvert</h1>
-          <p class="tag">Seamless upload conversion</p>
+          <p class="tag">Match uploads to what sites expect</p>
         </div>
       </header>
 
       <section class="panel">
-        <label class="row">
-          <span><strong>Enabled</strong></span>
+        <label class="row master">
+          <span>
+            <strong>Extension enabled</strong>
+            <small>Master switch for automatic conversion</small>
+          </span>
           <input type="checkbox" id="enabled" />
         </label>
+      </section>
+
+      <section class="panel" id="detailPanel">
         <label class="row">
-          <span><strong>Preview first</strong></span>
+          <span>
+            <strong>Preview before upload</strong>
+            <small>Confirm each conversion</small>
+          </span>
           <input type="checkbox" id="previewBeforeUpload" />
+        </label>
+        <label class="row">
+          <span>
+            <strong>Quiet toast</strong>
+            <small>Brief notice when a file converts</small>
+          </span>
+          <input type="checkbox" id="showQuietBadge" />
+        </label>
+        <label class="row stack">
+          <span>
+            <strong>Preferred image format</strong>
+            <small>When a field allows multiple image types</small>
+          </span>
+          <select id="preferredImageFormat">
+            <option value="auto">Auto (prefer PNG)</option>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+          </select>
         </label>
       </section>
 
       <div class="links">
-        <a href="options.html" target="_blank">All settings</a>
+        <a class="secondary" href="options.html" target="_blank">All settings</a>
       </div>
       <p class="status" id="status" hidden>Saved</p>
     </main>

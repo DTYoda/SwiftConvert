@@ -13,6 +13,7 @@ const fields = {
 };
 
 const status = document.getElementById("status");
+const detailPanel = document.getElementById("detailPanel");
 let statusTimer;
 
 function readForm() {
@@ -33,6 +34,12 @@ function writeForm(data) {
   if (fields.preferredImageFormat) {
     fields.preferredImageFormat.value = data.preferredImageFormat || "auto";
   }
+  syncDetailState();
+}
+
+function syncDetailState() {
+  if (!detailPanel || !fields.enabled) return;
+  detailPanel.classList.toggle("dimmed", !fields.enabled.checked);
 }
 
 function flashSaved() {
@@ -45,6 +52,7 @@ function flashSaved() {
 }
 
 function save() {
+  syncDetailState();
   chrome.storage.sync.set(readForm(), flashSaved);
 }
 

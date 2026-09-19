@@ -40,6 +40,7 @@
 
     if (data.type === "settings") {
       settings = { ...settings, ...data.payload };
+      refreshCoverageMarks();
     }
     if (data.type === "preview-result") {
       const { id, accepted } = data.payload || {};
@@ -62,6 +63,38 @@
     }
   }
   markHooked();
+
+  /** Mark upload controls SwiftConvert will handle (for the quiet field badge). */
+  function refreshCoverageMarks() {
+    try {
+      document.querySelectorAll("[data-swiftconvert-covered]").forEach((el) => {
+        el.removeAttribute("data-swiftconvert-covered");
+      });
+      if (!settings.enabled) {
+        postToBridge("coverage", { count: 0 });
+        return;
+      }
+      let count = 0;
+      document.querySelectorAll('input[type="file"]').forEach((input) => {
+        if (input.webkitdirectory || input.hasAttribute("webkitdirectory")) return;
+        if (input.hasAttribute("capture")) return;
+        const accept = effectiveAccept(input);
+        if (!accept) return;
+        input.setAttribute("data-swiftconvert-covered", "1");
+        count += 1;
+      });
+      document.querySelectorAll("[data-accept]").forEach((el) => {
+        if (el.getAttribute("data-swiftconvert-covered") === "1") return;
+        const a = el.getAttribute("data-accept");
+        if (!a || !String(a).trim()) return;
+        el.setAttribute("data-swiftconvert-covered", "1");
+        count += 1;
+      });
+      postToBridge("coverage", { count });
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
   function acceptFromContext(ctx) {
     if (!ctx) return "";
@@ -390,6 +423,137 @@
   document.addEventListener("input", onFileEvent, true);
 
   // ─── Drag and drop ────────────────────────────────────────────────────────
+  // Root cause of post-accept-neutralize DnD breakage:
+  // Neutralize only ran for picker gestures. Dropping a JPG onto <input accept=".png">
+  // is rejected by the browser before change fires, so conversion never runs.
+  // Custom dropzones need a synthetic drop whose dataTransfer reliably carries Files.
+
+  function findFileInputNear(node) {
+    if (!(node && node.nodeType === 1)) return null;
+    if (node instanceof HTMLInputElement && node.type === "file") return node;
+    const scope =
+      (node.closest &&
+        node.closest("label, form, [data-accept], [role='button'], .dropzone, .drop-zone, .upload")) ||
+      node;
+    if (scope && scope.querySelector) {
+      const found = scope.querySelector('input[type="file"]');
+      if (found) return found;
+    }
+    if (node.parentElement && node.parentElement.querySelector) {
+      const sibling = node.parentElement.querySelector('input[type="file"]');
+      if (sibling) return sibling;
+    }
+    return null;
+  }
+
+  function resolveDropContext(event) {
+    let accept = "";
+    let input = null;
+    let dropHost = null;
+    const path =
+      typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+
+    for (const node of path) {
+      if (node instanceof HTMLInputElement && node.type === "file") {
+        input = node;
+        accept = effectiveAccept(node) || "";
+        break;
+      }
+      if (node && node.getAttribute) {
+        const a = node.getAttribute("data-accept") || node.getAttribute("accept");
+        if (a) {
+          accept = a;
+          dropHost = node.nodeType === 1 ? node : null;
+          break;
+        }
+      }
+    }
+
+    if (!input) {
+      for (const node of path) {
+        const near = findFileInputNear(node);
+        if (near) {
+          input = near;
+          if (!accept) accept = effectiveAccept(near) || "";
+          break;
+        }
+      }
+    }
+
+    if (!accept && input) accept = effectiveAccept(input) || "";
+
+    const target =
+      dropHost ||
+      (event.target && event.target.nodeType === 1
+        ? event.target
+        : event.target && event.target.parentElement) ||
+      input;
+
+    return { accept, input, target };
+  }
+
+  function buildDataTransfer(files) {
+    const dt = new DataTransfer();
+    for (const f of files) dt.items.add(f);
+    return dt;
+  }
+
+  function dispatchSyntheticDrop(target, files, sourceEvent) {
+    if (!target || typeof target.dispatchEvent !== "function") return;
+    const dt = buildDataTransfer(files);
+
+    const tryDispatch = (evt) => {
+      Object.defineProperty(evt, "__swiftconvert", { value: true });
+      try {
+        Object.defineProperty(evt, "dataTransfer", {
+          configurable: true,
+          enumerable: true,
+          get: () => dt
+        });
+      } catch (_) {
+        /* engine may already expose dataTransfer */
+      }
+      target.dispatchEvent(evt);
+    };
+
+    // Prefer DragEvent with init dataTransfer; fall back to Event + getter override.
+    try {
+      const drag = new DragEvent("drop", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        dataTransfer: dt,
+        clientX: sourceEvent.clientX,
+        clientY: sourceEvent.clientY,
+        screenX: sourceEvent.screenX,
+        screenY: sourceEvent.screenY
+      });
+      tryDispatch(drag);
+      if (drag.dataTransfer && drag.dataTransfer.files && drag.dataTransfer.files.length) {
+        return;
+      }
+    } catch (_) {
+      /* continue to Event fallback */
+    }
+
+    const plain = new Event("drop", { bubbles: true, cancelable: true, composed: true });
+    tryDispatch(plain);
+  }
+
+  function deliverConvertedDrop(sourceEvent, files, ctx) {
+    const { input, target } = ctx;
+    if (input) {
+      assignFiles(input, files);
+      const change = new Event("change", { bubbles: true, cancelable: true });
+      Object.defineProperty(change, "__swiftconvert", { value: true });
+      silentAssign.add(input);
+      input.dispatchEvent(change);
+      setTimeout(() => silentAssign.delete(input), 0);
+    }
+    const dropTarget = target || input || sourceEvent.target;
+    dispatchSyntheticDrop(dropTarget, files, sourceEvent);
+  }
+
   document.addEventListener(
     "drop",
     (event) => {
@@ -398,67 +562,61 @@
       const dt = event.dataTransfer;
       if (!dt || !dt.files || !dt.files.length) return;
 
-      // Find nearest file input or dropzone with accept hints
-      let accept = "";
-      const path = typeof event.composedPath === "function" ? event.composedPath() : [];
-      for (const node of path) {
-        if (node instanceof HTMLInputElement && node.type === "file") {
-          accept = effectiveAccept(node) || node.accept || "";
-          break;
-        }
-        if (node && node.getAttribute) {
-          const a = node.getAttribute("data-accept") || node.getAttribute("accept");
-          if (a) {
-            accept = a;
-            break;
-          }
-        }
-      }
-
-      // If dropping onto a file input, let change handler deal with it after browser assigns files.
-      // For custom dropzones we intercept and rewrite DataTransfer asynchronously — which means
-      // we must preventDefault and re-dispatch a synthetic drop with converted files.
-      const targetIsFileInput =
-        event.target instanceof HTMLInputElement && event.target.type === "file";
-      if (targetIsFileInput) return;
-
+      const ctx = resolveDropContext(event);
       const originals = Array.from(dt.files);
       const maybeNeeded = originals.some((f) => {
-        const t = Mime.inferTargetMime(f, accept, settings.preferredImageFormat);
+        const t = Mime.inferTargetMime(f, ctx.accept, settings.preferredImageFormat);
         return t && Registry.canHandle(f, t);
       });
-      if (!maybeNeeded) return;
+      if (!maybeNeeded) {
+        if (ctx.input) restoreAcceptAfterPicker(ctx.input);
+        return;
+      }
 
+      // Intercept before the browser rejects mismatched types on accept= file inputs,
+      // and before page drop handlers read the original FileList.
       event.preventDefault();
       event.stopImmediatePropagation();
 
-      convertFileList(originals, { accept }).then((converted) => {
-        const newDt = new DataTransfer();
-        for (const f of converted) newDt.items.add(f);
-
-        const synthetic = new DragEvent("drop", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          dataTransfer: newDt,
-          clientX: event.clientX,
-          clientY: event.clientY
+      convertFileList(originals, { accept: ctx.accept, input: ctx.input })
+        .then((converted) => {
+          if (ctx.input) restoreAcceptAfterPicker(ctx.input);
+          deliverConvertedDrop(event, converted, ctx);
+        })
+        .catch(() => {
+          if (ctx.input) restoreAcceptAfterPicker(ctx.input);
+          deliverConvertedDrop(event, originals, ctx);
         });
-        Object.defineProperty(synthetic, "__swiftconvert", { value: true });
-        // DragEvent.dataTransfer is often read-only; force our FileList when needed.
-        try {
-          Object.defineProperty(synthetic, "dataTransfer", {
-            configurable: true,
-            get: () => newDt
-          });
-        } catch (_) {
-          /* some engines already accepted the constructor value */
-        }
-        event.target.dispatchEvent(synthetic);
-      });
     },
     true
   );
+
+  // Neutralize accept during drag-over on file inputs so the browser will allow the
+  // drop gesture; conversion still uses savedAccept via effectiveAccept.
+  function onDragOverFileInput(event) {
+    if (!settings.enabled) return;
+    const input = resolveDropContext(event).input;
+    if (input) prepareAcceptForPicker(input);
+  }
+  document.addEventListener("dragenter", onDragOverFileInput, true);
+  document.addEventListener("dragover", onDragOverFileInput, true);
+
+  function restoreNeutralizedAccepts() {
+    document.querySelectorAll('input[type="file"]').forEach((el) => {
+      if (acceptNeutralized.has(el)) restoreAcceptAfterPicker(el);
+    });
+  }
+
+  document.addEventListener(
+    "dragleave",
+    (event) => {
+      // relatedTarget null ≈ leaving the document / window
+      if (event.relatedTarget) return;
+      restoreNeutralizedAccepts();
+    },
+    true
+  );
+  document.addEventListener("dragend", restoreNeutralizedAccepts, true);
 
   // ─── FormData.append / set ────────────────────────────────────────────────
   const fdAppend = FormData.prototype.append;
@@ -569,5 +727,26 @@
     });
   }
 
-  postToBridge("hooked", { version: "0.1.1" });
+  // Keep coverage marks current for SPA-inserted upload fields.
+  const coverageObserver = new MutationObserver(() => {
+    if (coverageObserver.__scScheduled) return;
+    coverageObserver.__scScheduled = true;
+    requestAnimationFrame(() => {
+      coverageObserver.__scScheduled = false;
+      refreshCoverageMarks();
+    });
+  });
+  try {
+    coverageObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["accept", "data-accept", "type"]
+    });
+  } catch (_) {
+    /* ignore */
+  }
+  refreshCoverageMarks();
+
+  postToBridge("hooked", { version: "0.1.2" });
 })();

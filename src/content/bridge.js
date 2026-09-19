@@ -1,6 +1,6 @@
 /**
  * Content-script bridge (isolated world): syncs settings with the page-world hook
- * and hosts the optional preview overlay (shadow DOM).
+ * and hosts the optional preview overlay + covered-field badges (shadow DOM).
  *
  * Page-world scripts are primarily injected via manifest `world: "MAIN"`.
  * DOM `<script src=chrome-extension://…>` injection is only a fallback when the
@@ -23,6 +23,8 @@
   let shadow = null;
   let quietTimer = null;
   let injectAttempted = false;
+  let badgeLayer = null;
+  let badgeRaf = 0;
 
   const PAGE_SCRIPTS = [
     "src/lib/mime.js",
@@ -93,7 +95,10 @@
         changed = true;
       }
     }
-    if (changed) sendSettingsToPage();
+    if (changed) {
+      sendSettingsToPage();
+      scheduleBadgeRefresh();
+    }
   });
 
   window.addEventListener("message", (event) => {
@@ -105,6 +110,10 @@
       case "ready":
       case "hooked":
         sendSettingsToPage();
+        scheduleBadgeRefresh();
+        break;
+      case "coverage":
+        scheduleBadgeRefresh();
         break;
       case "preview":
         showPreview(data.payload);
@@ -136,10 +145,112 @@
     host.style.left = "0";
     host.style.width = "0";
     host.style.height = "0";
+    host.style.pointerEvents = "none";
     shadow = host.attachShadow({ mode: "closed" });
     document.documentElement.appendChild(host);
     return shadow;
   }
+
+  function ensureBadgeLayer() {
+    const root = ensureHost();
+    if (badgeLayer) return badgeLayer;
+    const style = document.createElement("style");
+    style.textContent = `
+      #sc-badges { position: fixed; inset: 0; pointer-events: none; z-index: 2147483645; }
+      .sc-badge {
+        position: fixed;
+        width: 18px; height: 18px;
+        border-radius: 5px;
+        background: #0f766e;
+        color: #ecfdf5;
+        font: 700 9px/18px "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: -0.02em;
+        text-align: center;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.22);
+        opacity: 0.92;
+        pointer-events: none;
+        user-select: none;
+      }
+    `;
+    root.appendChild(style);
+    badgeLayer = document.createElement("div");
+    badgeLayer.id = "sc-badges";
+    root.appendChild(badgeLayer);
+    return badgeLayer;
+  }
+
+  function anchorForCovered(el) {
+    if (!(el && el.getBoundingClientRect)) return null;
+    // Prefer a visible label / sibling control when the file input is visually hidden.
+    if (el instanceof HTMLInputElement && el.type === "file") {
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const hidden =
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        style.opacity === "0" ||
+        rect.width < 2 ||
+        rect.height < 2;
+      if (hidden) {
+        if (el.id) {
+          const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+          if (label) return label;
+        }
+        const wrapping = el.closest("label");
+        if (wrapping) return wrapping;
+        const parent = el.parentElement;
+        if (parent) {
+          const btn = parent.querySelector("button, [role='button'], .drop, .dropzone");
+          if (btn) return btn;
+        }
+      }
+    }
+    return el;
+  }
+
+  function scheduleBadgeRefresh() {
+    if (badgeRaf) cancelAnimationFrame(badgeRaf);
+    badgeRaf = requestAnimationFrame(() => {
+      badgeRaf = 0;
+      renderCoverageBadges();
+    });
+  }
+
+  function renderCoverageBadges() {
+    if (!settings.enabled) {
+      if (badgeLayer) badgeLayer.textContent = "";
+      return;
+    }
+    const covered = document.querySelectorAll("[data-swiftconvert-covered='1']");
+    if (!covered.length) {
+      if (badgeLayer) badgeLayer.textContent = "";
+      return;
+    }
+    const layer = ensureBadgeLayer();
+    layer.textContent = "";
+    const seen = new Set();
+    covered.forEach((el) => {
+      const anchor = anchorForCovered(el);
+      if (!anchor || seen.has(anchor)) return;
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width < 2 && rect.height < 2) return;
+      if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+      if (rect.right < 0 || rect.left > window.innerWidth) return;
+      seen.add(anchor);
+      const badge = document.createElement("div");
+      badge.className = "sc-badge";
+      badge.textContent = "SC";
+      badge.title = "SwiftConvert will convert mismatched uploads for this field";
+      const top = Math.max(4, rect.top + 2);
+      const left = Math.min(window.innerWidth - 22, Math.max(4, rect.right - 16));
+      badge.style.top = `${Math.round(top)}px`;
+      badge.style.left = `${Math.round(left)}px`;
+      layer.appendChild(badge);
+    });
+  }
+
+  window.addEventListener("scroll", scheduleBadgeRefresh, true);
+  window.addEventListener("resize", scheduleBadgeRefresh);
 
   function showQuietToast(payload) {
     if (!settings.showQuietBadge) return;
@@ -180,6 +291,7 @@
         #sc-preview {
           position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
           background: rgba(15, 23, 42, 0.45); font: 14px/1.45 "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+          pointer-events: auto;
         }
         #sc-preview .card {
           background: #fff; color: #0f172a; width: min(420px, calc(100vw - 32px));
@@ -193,7 +305,7 @@
           border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer;
         }
         #sc-preview .ghost { background: #e2e8f0; color: #0f172a; }
-        #sc-preview .primary { background: #2563eb; color: #fff; }
+        #sc-preview .primary { background: #0f766e; color: #fff; }
         #sc-preview.hidden { display: none; }
       `;
       root.appendChild(style);
@@ -239,10 +351,14 @@
   }
 
   // Boot: MAIN-world content scripts should already be present. Retry fallback briefly.
-  loadSettings().then(sendSettingsToPage);
+  loadSettings().then(() => {
+    sendSettingsToPage();
+    scheduleBadgeRefresh();
+  });
   const scheduleFallback = () => {
     if (isPageHooked()) {
       sendSettingsToPage();
+      scheduleBadgeRefresh();
       return;
     }
     injectScriptsFallback();
