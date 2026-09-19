@@ -204,7 +204,7 @@
 
     processInputFiles(t, snapshot).then((changed) => {
       const ev = new Event(event.type, { bubbles: true, cancelable: true });
-      ev.__swiftconvert = true;
+      Object.defineProperty(ev, "__swiftconvert", { value: true });
       if (changed) silentAssign.add(t);
       t.dispatchEvent(ev);
       setTimeout(() => silentAssign.delete(t), 0);

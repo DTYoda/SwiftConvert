@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SwiftConvert converter self-test</title>
+  </head>
+  <body>
+    <pre id="out">Running…</pre>
+    <script src="/src/lib/mime.js"></script>
+    <script src="/src/lib/converters/image.js"></script>
+    <script src="/src/lib/converters/stubs.js"></script>
+    <script src="/src/lib/converters/registry.js"></script>
+    <script>
+      (async () => {
+        const out = document.getElementById("out");
+        try {
+          const res = await fetch("/demo/sample.jpg");
+          const blob = await res.blob();
+          const file = new File([blob], "sample.jpg", { type: "image/jpeg" });
+          const target = SwiftConvertMime.inferTargetMime(file, "image/png,.png", "auto");
+          if (target !== "image/png") throw new Error("infer failed: " + target);
+          const converted = await SwiftConvertRegistry.convertFile(file, target);
+          const lines = [
+            "PASS infer → " + target,
+            "PASS convert name=" + converted.name,
+            "PASS convert type=" + converted.type,
+            "PASS convert size=" + converted.size
+          ];
+          if (converted.type !== "image/png") throw new Error("bad type");
+          if (!converted.name.endsWith(".png")) throw new Error("bad name");
+          if (converted.size < 50) throw new Error("too small");
+          out.textContent = lines.join("\n");
+          document.title = "PASS";
+        } catch (err) {
+          out.textContent = "FAIL " + err;
+          document.title = "FAIL";
+        }
+      })();
+    </script>
+  </body>
+</html>

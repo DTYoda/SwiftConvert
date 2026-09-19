@@ -26,6 +26,8 @@ Firefox (MV3): open `about:debugging` → This Firefox → Load Temporary Add-on
 4. On **Native file input**, choose `demo/sample.jpg`.
 5. The result panel should show `image/png` and a `.png` filename — the page only accepts PNG.
 
+Converter-only smoke test (no extension): [http://127.0.0.1:8765/demo/self-test.html](http://127.0.0.1:8765/demo/self-test.html) should show `PASS`.
+
 Also try the drag-and-drop zone and the FormData/fetch section on the same page.
 
 ### Preview mode
