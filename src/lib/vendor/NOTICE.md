@@ -2,12 +2,13 @@
 
 SwiftConvert vendors the following client-side libraries for conversion and branding.
 
-## heic2any
+## libheif-js
 
-- Package: `heic2any` (Alex Corvi)
-- Files: `heic2any.min.js`, `heic2any.worker.js` (worker script extracted for Chrome MV3; blob workers are not allowed in `extension_pages` CSP)
-- License: MIT
-- https://github.com/alexcorvi/heic2any
+- Package: `libheif-js` (WASM bundle of strukturag/libheif)
+- Files: `libheif-bundle.js`, `libheif-LICENSE.txt`
+- License: LGPL-3.0 (libheif) — see `libheif-LICENSE.txt`
+- https://github.com/catdad-experiments/libheif-js
+- Chosen over `heic2any` because Chrome MV3 extension pages cannot allow `unsafe-eval`; libheif’s WASM build works with `wasm-unsafe-eval` only.
 
 ## PDF.js
 

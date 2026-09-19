@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
@@ -72,8 +72,7 @@
         "src/lib/converters/heic.js",
         "src/lib/converters/pdf.js",
         "src/lib/converters/docx.js",
-        "src/lib/vendor/heic2any.min.js",
-        "src/lib/vendor/heic2any.worker.js",
+        "src/lib/vendor/libheif-bundle.js",
         "src/lib/vendor/mammoth.browser.min.js",
         "src/lib/vendor/pdf.min.mjs",
         "src/lib/vendor/pdf.worker.min.mjs",

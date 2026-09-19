@@ -42,13 +42,13 @@ Toolbar popup includes **Convert** and **Compress** tabs: pick or drop a file, t
 | Source | Targets | Engine |
 |--------|---------|--------|
 | JPEG / PNG / WebP / GIF / BMP | PNG, JPEG, WebP, PDF | Canvas + minimal PDF writer |
-| HEIC / HEIF | JPEG, PNG, WebP | `heic2any` (WASM) via convert host |
+| HEIC / HEIF | JPEG, PNG, WebP | `libheif-js` WASM via convert host |
 | PDF | PNG / JPEG / WebP (page 1) | `pdf.js` via convert host |
 | DOCX | plain text, HTML, text PDF | `mammoth` + text PDF writer |
 | Images | PDF (single page) | Minimal JPEG-in-PDF writer |
 | Oversized images | Same type (or JPEG when chasing a byte budget) | Canvas quality + resize |
 
-Complex converts (HEIC / PDF→image / DOCX) run in a hidden extension-page iframe so WASM/workers stay under the extension CSP, not the host page CSP. PDF.js and heic2any workers are packaged files (`pdf.worker.min.mjs`, `heic2any.worker.js`) — Chrome MV3 forbids `blob:` in `worker-src` for extension pages. Image compression uses canvas only (no workers).
+Complex converts (HEIC / PDF→image / DOCX) run in a hidden extension-page iframe so WASM/workers stay under the extension CSP, not the host page CSP. HEIC uses `libheif-bundle.js` (WASM, no `eval` / `Function`) under `script-src 'self' 'wasm-unsafe-eval'`. PDF.js uses a packaged worker (`pdf.worker.min.mjs`) — Chrome MV3 forbids `blob:` in `worker-src` for extension pages. Image compression uses canvas only (no workers).
 
 ## Auto-compress (detect-first)
 
@@ -97,11 +97,11 @@ src/
   convert/             # hidden convert host (HEIC/PDF/DOCX libs)
   lib/                 # mime, compress, size-limit
   lib/converters/      # image, heic, pdf, docx, pdf-write, registry
-  lib/vendor/          # heic2any, pdf.js, mammoth
+  lib/vendor/          # libheif-js, pdf.js, mammoth
   options/             # popup, options, converter + compressor
 demo/
 ```
 
 ## Vendored libraries
 
-See `src/lib/vendor/NOTICE.md` for licenses (`heic2any`, `pdf.js`, `mammoth`, Outfit font).
+See `src/lib/vendor/NOTICE.md` for licenses (`libheif-js`, `pdf.js`, `mammoth`, Outfit font).
