@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwiftConvert</title>
+    <link rel="stylesheet" href="options.css" />
+    <style>
+      body { min-width: 280px; margin: 0; }
+      .wrap { padding: 14px 16px 16px; }
+      h1 { font-size: 16px; margin: 0; }
+      .tag { font-size: 12px; }
+      .panel { margin-top: 12px; }
+      .links { display: flex; gap: 8px; margin-top: 12px; }
+      .links a {
+        flex: 1; text-align: center; text-decoration: none;
+        background: #2563eb; color: #fff; padding: 8px; border-radius: 8px; font-size: 13px;
+      }
+      .links a.secondary { background: #e2e8f0; color: #0f172a; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="brand compact">
+        <img src="../../icons/icon32.png" alt="" width="28" height="28" />
+        <div>
+          <h1>SwiftConvert</h1>
+          <p class="tag">Seamless upload conversion</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <label class="row">
+          <span><strong>Enabled</strong></span>
+          <input type="checkbox" id="enabled" />
+        </label>
+        <label class="row">
+          <span><strong>Preview first</strong></span>
+          <input type="checkbox" id="previewBeforeUpload" />
+        </label>
+      </section>
+
+      <div class="links">
+        <a href="options.html" target="_blank">All settings</a>
+      </div>
+      <p class="status" id="status" hidden>Saved</p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+:root {
+  --bg: #f1f5f9;
+  --panel: #ffffff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --ok: #15803d;
+  --todo: #b45309;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 14px/1.45 "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 420px at 10% -10%, #dbeafe 0%, transparent 55%),
+    radial-gradient(700px 380px at 100% 0%, #e2e8f0 0%, transparent 50%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+.wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px 48px; }
+.brand { display: flex; gap: 14px; align-items: center; }
+.brand.compact { gap: 10px; }
+.brand img { border-radius: 8px; }
+h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+.tag { margin: 2px 0 0; color: var(--muted); }
+.panel {
+  margin-top: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 16px;
+}
+.panel.muted { background: #f8fafc; }
+.panel h2 { margin: 12px 0 8px; font-size: 14px; }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row:last-child { border-bottom: 0; }
+.row.stack { flex-direction: column; align-items: stretch; }
+.row strong { display: block; }
+.row small { display: block; color: var(--muted); margin-top: 2px; }
+.row input[type="checkbox"] {
+  width: 18px; height: 18px; accent-color: var(--accent);
+}
+.row select {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font: inherit;
+  background: #fff;
+}
+.converters { list-style: none; margin: 0 0 12px; padding: 0; }
+.converters li {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0; color: #334155; font-size: 13px;
+}
+.ok, .todo {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.ok { background: #dcfce7; color: var(--ok); }
+.todo { background: #ffedd5; color: var(--todo); }
+.status {
+  margin-top: 14px;
+  color: var(--ok);
+  font-size: 13px;
+  font-weight: 600;
+}

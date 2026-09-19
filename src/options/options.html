@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwiftConvert Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header>
+        <div class="brand">
+          <img src="../../icons/icon48.png" alt="" width="36" height="36" />
+          <div>
+            <h1>SwiftConvert</h1>
+            <p class="tag">Upload the file you have — we’ll match what the site wants.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="panel">
+        <label class="row">
+          <span>
+            <strong>Enable SwiftConvert</strong>
+            <small>When on, mismatched uploads convert automatically.</small>
+          </span>
+          <input type="checkbox" id="enabled" />
+        </label>
+
+        <label class="row">
+          <span>
+            <strong>Preview before upload</strong>
+            <small>Confirm each conversion (recommended for DOCX/PDF later).</small>
+          </span>
+          <input type="checkbox" id="previewBeforeUpload" />
+        </label>
+
+        <label class="row">
+          <span>
+            <strong>Quiet conversion toast</strong>
+            <small>Brief on-page notice when a file was converted (no preview).</small>
+          </span>
+          <input type="checkbox" id="showQuietBadge" />
+        </label>
+
+        <label class="row stack">
+          <span>
+            <strong>Preferred image format</strong>
+            <small>Used when the field accepts multiple image types. “Auto” prefers PNG when listed.</small>
+          </span>
+          <select id="preferredImageFormat">
+            <option value="auto">Auto</option>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="panel muted">
+        <h2>Converters</h2>
+        <ul class="converters">
+          <li><span class="ok">Ready</span> Images — JPEG, WebP, GIF, BMP ↔ PNG / JPEG / WebP</li>
+          <li><span class="todo">Planned</span> PDF — stubbed for a later slice</li>
+          <li><span class="todo">Planned</span> DOCX — stubbed for a later slice</li>
+        </ul>
+      </section>
+
+      <p class="status" id="status" hidden>Saved</p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
