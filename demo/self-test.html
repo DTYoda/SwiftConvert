@@ -3,39 +3,119 @@
   <head>
     <meta charset="UTF-8" />
     <title>SwiftConvert converter self-test</title>
+    <style>
+      body { font: 14px/1.45 Outfit, Trebuchet MS, sans-serif; margin: 24px; background: #e8f0ee; color: #0c1f2e; }
+      pre { background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #c5d5d0; white-space: pre-wrap; }
+    </style>
   </head>
   <body>
+    <h1>SwiftConvert self-test</h1>
     <pre id="out">Running…</pre>
+
+    <script src="/src/lib/vendor/heic2any.min.js"></script>
+    <script src="/src/lib/vendor/mammoth.browser.min.js"></script>
     <script src="/src/lib/mime.js"></script>
     <script src="/src/lib/converters/image.js"></script>
+    <script src="/src/lib/converters/pdf-write.js"></script>
+    <script src="/src/lib/converters/heic.js"></script>
+    <script src="/src/lib/converters/docx.js"></script>
+    <script src="/src/lib/converters/pdf.js"></script>
     <script src="/src/lib/converters/stubs.js"></script>
     <script src="/src/lib/converters/registry.js"></script>
-    <script>
-      (async () => {
-        const out = document.getElementById("out");
-        try {
-          const res = await fetch("/demo/sample.jpg");
-          const blob = await res.blob();
-          const file = new File([blob], "sample.jpg", { type: "image/jpeg" });
+    <script type="module">
+      import * as pdfjs from "/src/lib/vendor/pdf.min.mjs";
+      pdfjs.GlobalWorkerOptions.workerSrc = "/src/lib/vendor/pdf.worker.min.mjs";
+      globalThis.pdfjsLib = pdfjs;
+
+      const out = document.getElementById("out");
+      const lines = [];
+
+      function ok(msg) {
+        lines.push("PASS " + msg);
+        out.textContent = lines.join("\n");
+      }
+      function fail(msg) {
+        lines.push("FAIL " + msg);
+        out.textContent = lines.join("\n");
+        document.title = "FAIL";
+        throw new Error(msg);
+      }
+
+      async function loadFile(path, name, type) {
+        const res = await fetch(path);
+        if (!res.ok) throw new Error("fetch " + path);
+        const blob = await res.blob();
+        return new File([blob], name, { type });
+      }
+
+      try {
+        // 1) JPEG → PNG
+        {
+          const file = await loadFile("/demo/sample.jpg", "sample.jpg", "image/jpeg");
           const target = SwiftConvertMime.inferTargetMime(file, "image/png,.png", "auto");
-          if (target !== "image/png") throw new Error("infer failed: " + target);
+          if (target !== "image/png") fail("infer jpg→png: " + target);
           const converted = await SwiftConvertRegistry.convertFile(file, target);
-          const lines = [
-            "PASS infer → " + target,
-            "PASS convert name=" + converted.name,
-            "PASS convert type=" + converted.type,
-            "PASS convert size=" + converted.size
-          ];
-          if (converted.type !== "image/png") throw new Error("bad type");
-          if (!converted.name.endsWith(".png")) throw new Error("bad name");
-          if (converted.size < 50) throw new Error("too small");
-          out.textContent = lines.join("\n");
-          document.title = "PASS";
-        } catch (err) {
-          out.textContent = "FAIL " + err;
-          document.title = "FAIL";
+          if (converted.type !== "image/png") fail("jpg type " + converted.type);
+          if (!converted.name.endsWith(".png")) fail("jpg name");
+          if (converted.size < 50) fail("jpg too small");
+          ok("JPEG → PNG (" + converted.size + " bytes)");
         }
-      })();
+
+        // 2) Image → PDF
+        {
+          const file = await loadFile("/demo/sample.jpg", "sample.jpg", "image/jpeg");
+          const converted = await SwiftConvertRegistry.convertFile(file, "application/pdf");
+          if (converted.type !== "application/pdf") fail("img→pdf type");
+          const head = new TextDecoder().decode(await converted.slice(0, 5).arrayBuffer());
+          if (head !== "%PDF-") fail("img→pdf header");
+          ok("JPEG → PDF (" + converted.size + " bytes)");
+        }
+
+        // 3) DOCX → text
+        {
+          const file = await loadFile(
+            "/demo/sample.docx",
+            "sample.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          );
+          const target = SwiftConvertMime.inferTargetMime(file, "text/plain,.txt", "auto");
+          if (target !== "text/plain") fail("infer docx→txt: " + target);
+          const converted = await SwiftConvertRegistry.convertFile(file, "text/plain");
+          const text = await converted.text();
+          if (!/SwiftConvert/.test(text)) fail("docx text missing content: " + text);
+          ok("DOCX → text");
+        }
+
+        // 4) PDF → PNG
+        {
+          const file = await loadFile("/demo/sample.pdf", "sample.pdf", "application/pdf");
+          const target = SwiftConvertMime.inferTargetMime(file, "image/png,.png", "auto");
+          if (target !== "image/png") fail("infer pdf→png: " + target);
+          const converted = await SwiftConvertRegistry.convertFile(file, "image/png");
+          if (converted.type !== "image/png") fail("pdf→png type " + converted.type);
+          if (converted.size < 50) fail("pdf→png too small");
+          ok("PDF → PNG page1 (" + converted.size + " bytes)");
+        }
+
+        // 5) HEIC → JPEG
+        {
+          const file = await loadFile("/demo/sample.heic", "sample.heic", "image/heic");
+          const target = SwiftConvertMime.inferTargetMime(file, "image/jpeg,.jpg", "auto");
+          if (target !== "image/jpeg") fail("infer heic→jpeg: " + target);
+          const converted = await SwiftConvertRegistry.convertFile(file, "image/jpeg");
+          if (converted.type !== "image/jpeg") fail("heic type " + converted.type);
+          if (converted.size < 50) fail("heic too small");
+          ok("HEIC → JPEG (" + converted.size + " bytes)");
+        }
+
+        lines.push("ALL PASS");
+        out.textContent = lines.join("\n");
+        document.title = "PASS";
+      } catch (err) {
+        lines.push(String(err && err.stack ? err.stack : err));
+        out.textContent = lines.join("\n");
+        document.title = "FAIL";
+      }
     </script>
   </body>
 </html>

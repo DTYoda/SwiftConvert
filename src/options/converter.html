@@ -10,7 +10,7 @@
   <body class="converter-page">
     <main class="wrap converter-wrap">
       <header class="brand compact">
-        <img src="../../icons/icon32.png" alt="" width="28" height="28" />
+        <img src="../../icons/icon32.png" alt="SwiftConvert" width="28" height="28" />
         <div>
           <h1>Manual converter</h1>
           <p class="tag">Convert, download, or drag onto a webpage</p>
@@ -19,20 +19,28 @@
 
       <section class="panel converter-panel" id="manualConverter">
         <div class="cv-drop" data-cv-drop tabindex="0">
-          <input type="file" data-cv-file accept="image/*" hidden />
-          <p class="cv-drop-label">Drop an image here or click to choose</p>
+          <input
+            type="file"
+            data-cv-file
+            accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            hidden
+          />
+          <p class="cv-drop-label">Drop an image, HEIC, PDF, or DOCX — or click to choose</p>
           <p class="cv-name" data-cv-name>No file selected</p>
         </div>
+
+        <div class="cv-preview" data-cv-preview></div>
 
         <label class="row stack cv-format">
           <span>
             <strong>Target format</strong>
-            <small>Used when the site does not force a type</small>
+            <small>Options update for the selected file</small>
           </span>
           <select data-cv-format>
-            <option value="png">PNG</option>
-            <option value="jpeg">JPEG</option>
-            <option value="webp">WebP</option>
+            <option value="image/png">PNG</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/webp">WebP</option>
+            <option value="application/pdf">PDF</option>
           </select>
         </label>
 
@@ -61,10 +69,16 @@
       </section>
     </main>
 
+    <script src="../lib/vendor/heic2any.min.js"></script>
+    <script src="../lib/vendor/mammoth.browser.min.js"></script>
     <script src="../lib/mime.js"></script>
     <script src="../lib/converters/image.js"></script>
+    <script src="../lib/converters/pdf-write.js"></script>
+    <script src="../lib/converters/heic.js"></script>
+    <script src="../lib/converters/docx.js"></script>
+    <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
-    <script src="converter.js"></script>
+    <script type="module" src="boot-converters.js"></script>
   </body>
 </html>

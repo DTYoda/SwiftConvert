@@ -6,29 +6,40 @@
     <title>SwiftConvert Demo — PNG-only upload</title>
     <style>
       :root {
-        --ink: #0b1220;
-        --muted: #5b6b7c;
-        --line: #d7dee8;
-        --panel: #ffffff;
-        --bg: #eef3f8;
-        --accent: #0f766e;
-        --accent-soft: #ccfbf1;
-        --danger: #b91c1c;
-        --ok: #166534;
+        --ink: #0c1f2e;
+        --muted: #5a7385;
+        --line: rgba(12, 31, 46, 0.12);
+        --panel: rgba(255, 255, 255, 0.88);
+        --bg: #e8f0ee;
+        --accent: #146b63;
+        --accent-soft: #d8f3ee;
+        --danger: #b42318;
+        --ok: #1f7a45;
+        --font: "Outfit", "Trebuchet MS", "Gill Sans", sans-serif;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        font: 15px/1.5 "Source Sans 3", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        font: 15px/1.5 var(--font);
         color: var(--ink);
         background:
-          linear-gradient(165deg, #d9e8ef 0%, transparent 42%),
-          linear-gradient(345deg, #e7f0e9 0%, transparent 40%),
+          radial-gradient(720px 380px at 0% -10%, rgba(126, 224, 210, 0.35) 0%, transparent 55%),
+          radial-gradient(640px 360px at 100% 0%, rgba(244, 194, 122, 0.2) 0%, transparent 50%),
           var(--bg);
         min-height: 100vh;
       }
       main { max-width: 720px; margin: 0 auto; padding: 40px 20px 64px; }
-      h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.03em; }
+      .hero {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .hero img {
+        width: 48px; height: 48px; border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(20, 107, 99, 0.2);
+      }
+      h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.03em; font-weight: 600; }
       .lede { color: var(--muted); margin: 0 0 28px; max-width: 52ch; }
       section {
         background: var(--panel);
@@ -36,8 +47,9 @@
         border-radius: 14px;
         padding: 20px 22px;
         margin-bottom: 16px;
+        backdrop-filter: blur(8px);
       }
-      h2 { margin: 0 0 8px; font-size: 16px; }
+      h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
       .hint { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
       .accept {
         display: inline-block;
@@ -53,7 +65,7 @@
       }
       input[type="file"] { display: block; width: 100%; }
       .drop {
-        border: 1.5px dashed #94a3b8;
+        border: 1.5px dashed rgba(20, 107, 99, 0.35);
         border-radius: 12px;
         padding: 28px 16px;
         text-align: center;
@@ -65,7 +77,7 @@
         margin-top: 14px;
         padding: 12px 14px;
         border-radius: 10px;
-        background: #f8fafc;
+        background: #f7fbfa;
         border: 1px solid var(--line);
         font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
         font-size: 12.5px;
@@ -81,9 +93,10 @@
         background: var(--accent);
         color: #fff;
         border: 0;
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 8px 14px;
         font: inherit;
+        font-weight: 600;
         cursor: pointer;
       }
       button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -91,11 +104,17 @@
   </head>
   <body>
     <main>
-      <h1>SwiftConvert demo</h1>
+      <div class="hero">
+        <img src="/icons/icon48.png" alt="SwiftConvert" width="48" height="48" />
+        <div>
+          <h1>SwiftConvert</h1>
+        </div>
+      </div>
       <p class="lede">
-        This page only accepts <strong>PNG</strong>. With the extension enabled, choose
-        <code>sample.jpg</code> from this folder — SwiftConvert should convert it to PNG
-        before the page sees the file.
+        Quiet upload matching for the browser. This demo accepts <strong>PNG</strong> on the
+        main fixtures — with the extension enabled, pick <code>sample.jpg</code> or
+        <code>sample.heic</code> and SwiftConvert converts before the page sees the file.
+        Also try PDF→PNG and DOCX→text fields below.
       </p>
 
       <section>
@@ -174,23 +193,49 @@
         <button type="button" id="dynBtn">Create input &amp; open picker</button>
         <div class="result" id="dynResult">No file yet.</div>
       </section>
+
+      <section>
+        <span class="accept">accept = image/jpeg,.jpg</span>
+        <h2>HEIC → JPEG</h2>
+        <p class="hint">Choose <code>sample.heic</code>. Extension should deliver a JPEG.</p>
+        <input id="heicInput" type="file" accept="image/jpeg,.jpg" />
+        <div class="result" id="heicResult">No file yet.</div>
+      </section>
+
+      <section>
+        <span class="accept">accept = image/png,.png</span>
+        <h2>PDF → PNG</h2>
+        <p class="hint">Choose <code>sample.pdf</code>. Page 1 is rasterized to PNG.</p>
+        <input id="pdfInput" type="file" accept="image/png,.png" />
+        <div class="result" id="pdfResult">No file yet.</div>
+      </section>
+
+      <section>
+        <span class="accept">accept = text/plain,.txt</span>
+        <h2>DOCX → plain text</h2>
+        <p class="hint">Choose <code>sample.docx</code>. Text is extracted client-side.</p>
+        <input id="docxInput" type="file" accept="text/plain,.txt" />
+        <div class="result" id="docxResult">No file yet.</div>
+      </section>
     </main>
 
     <script>
-      function describe(file) {
-        if (!file) return "No file.";
-        const ok = file.type === "image/png" || /\.png$/i.test(file.name);
+      function describe(file, expect) {
+        if (!file) return { text: "No file.", ok: false };
+        const typeOk = expect
+          ? file.type === expect.type || (expect.ext && new RegExp("\\." + expect.ext + "$", "i").test(file.name))
+          : file.type === "image/png" || /\.png$/i.test(file.name);
         return {
           text:
             "name: " + file.name + "\n" +
             "type: " + (file.type || "(empty)") + "\n" +
             "size: " + file.size + " bytes",
-          ok
+          ok: typeOk
         };
       }
 
-      function show(el, file) {
-        const d = describe(file);
+      function show(el, file, expect) {
+        const d = describe(file, expect);
         el.textContent = d.text;
         el.classList.toggle("ok", d.ok);
         el.classList.toggle("bad", !d.ok);
@@ -312,6 +357,19 @@
           input.remove();
         });
         input.click();
+      });
+
+      const heicInput = document.getElementById("heicInput");
+      heicInput.addEventListener("change", () => {
+        show(heicResult, heicInput.files && heicInput.files[0], { type: "image/jpeg", ext: "jpg" });
+      });
+      const pdfInput = document.getElementById("pdfInput");
+      pdfInput.addEventListener("change", () => {
+        show(pdfResult, pdfInput.files && pdfInput.files[0], { type: "image/png", ext: "png" });
+      });
+      const docxInput = document.getElementById("docxInput");
+      docxInput.addEventListener("change", () => {
+        show(docxResult, docxInput.files && docxInput.files[0], { type: "text/plain", ext: "txt" });
       });
     </script>
   </body>

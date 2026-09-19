@@ -3,7 +3,7 @@
 }
 
 .converter-wrap {
-  max-width: 400px;
+  max-width: 420px;
   padding-top: 20px;
 }
 
@@ -12,19 +12,25 @@
 }
 
 .cv-drop {
-  border: 1.5px dashed #94a3b8;
-  border-radius: 10px;
-  padding: 16px 12px;
+  border: 1.5px dashed rgba(20, 107, 99, 0.35);
+  border-radius: 12px;
+  padding: 18px 12px;
   text-align: center;
   cursor: pointer;
-  background: #f8fafc;
-  transition: border-color 0.15s, background 0.15s;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.7), rgba(243, 250, 248, 0.9));
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
   margin: 4px 0 8px;
+}
+
+.cv-drop:hover {
+  border-color: var(--accent);
 }
 
 .cv-drop.over {
   border-color: var(--accent);
-  background: #f0fdfa;
+  background: rgba(204, 251, 241, 0.55);
+  transform: translateY(-1px);
 }
 
 .cv-drop-label {
@@ -55,14 +61,19 @@
 .cv-btn {
   flex: 1;
   border: 0;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 10px;
+  padding: 9px 10px;
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  background: #e2e8f0;
+  background: #dce8e5;
   color: var(--ink);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.cv-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .cv-btn.primary {
@@ -73,23 +84,25 @@
 .cv-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
 }
 
 .cv-drag {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 11px 12px;
   background: #fff;
   cursor: grab;
   user-select: none;
   opacity: 0.45;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .cv-drag.ready {
   opacity: 1;
-  border-color: #99f6e4;
-  background: #f0fdfa;
-  box-shadow: 0 1px 0 rgba(15, 118, 110, 0.08);
+  border-color: rgba(20, 107, 99, 0.35);
+  background: linear-gradient(180deg, #f3faf8, #e7f6f2);
+  box-shadow: 0 1px 0 rgba(20, 107, 99, 0.08);
 }
 
 .cv-drag[aria-disabled="true"] {
@@ -121,7 +134,7 @@
 }
 
 .cv-status[data-kind="bad"] {
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .cv-note {
@@ -141,4 +154,28 @@
 
 .popup-converter .cv-note {
   margin-top: 8px;
+}
+
+.cv-preview {
+  margin: 8px 0 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0c1f2e0a;
+  display: none;
+  max-height: 160px;
+}
+
+.cv-preview.show {
+  display: block;
+}
+
+.cv-preview img,
+.cv-preview iframe {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  border: 0;
+  background: #fff;
 }

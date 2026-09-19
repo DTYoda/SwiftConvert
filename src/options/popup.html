@@ -8,14 +8,10 @@
     <link rel="stylesheet" href="converter.css" />
     <style>
       body {
-        min-width: 300px;
-        max-width: 320px;
+        min-width: 320px;
+        max-width: 340px;
         margin: 0;
         min-height: 0;
-        background:
-          radial-gradient(420px 180px at 0% 0%, #ccfbf1 0%, transparent 55%),
-          radial-gradient(380px 160px at 100% 0%, #e2e8f0 0%, transparent 50%),
-          #f8fafc;
       }
       .wrap { padding: 14px 14px 12px; }
       h1 { font-size: 16px; margin: 0; letter-spacing: -0.02em; }
@@ -32,24 +28,22 @@
         flex: 1;
         text-align: center;
         text-decoration: none;
-        background: #0f766e;
+        background: var(--accent);
         color: #fff;
         padding: 8px;
-        border-radius: 8px;
+        border-radius: 10px;
         font-size: 12.5px;
         font-weight: 600;
       }
       .links a.secondary {
-        background: #e2e8f0;
-        color: #0f172a;
+        background: #dce8e5;
+        color: var(--ink);
       }
       .status {
         margin: 8px 0 0;
         text-align: center;
       }
-      .master {
-        align-items: center;
-      }
+      .master { align-items: center; }
       .master strong { font-size: 14px; }
       .dimmed { opacity: 0.45; pointer-events: none; }
       .section-label {
@@ -58,14 +52,14 @@
         font-weight: 650;
         letter-spacing: 0.04em;
         text-transform: uppercase;
-        color: #64748b;
+        color: var(--muted);
       }
     </style>
   </head>
   <body>
     <main class="wrap">
       <header class="brand compact">
-        <img src="../../icons/icon32.png" alt="" width="28" height="28" />
+        <img src="../../icons/icon32.png" alt="SwiftConvert" width="28" height="28" />
         <div>
           <h1>SwiftConvert</h1>
           <p class="tag">Match uploads to what sites expect</p>
@@ -86,7 +80,7 @@
         <label class="row">
           <span>
             <strong>Preview before upload</strong>
-            <small>Confirm each conversion</small>
+            <small>Confirm each conversion — recommended for PDF/DOCX</small>
           </span>
           <input type="checkbox" id="previewBeforeUpload" />
         </label>
@@ -114,20 +108,23 @@
       <p class="section-label">Manual converter</p>
       <section class="panel converter-panel popup-converter" id="manualConverter">
         <div class="cv-drop" data-cv-drop tabindex="0">
-          <input type="file" data-cv-file accept="image/*" hidden />
-          <p class="cv-drop-label">Drop or click to choose an image</p>
+          <input type="file" data-cv-file accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+          <p class="cv-drop-label">Drop or click — image, HEIC, PDF, DOCX</p>
           <p class="cv-name" data-cv-name>No file selected</p>
         </div>
+
+        <div class="cv-preview" data-cv-preview></div>
 
         <label class="row stack cv-format">
           <span>
             <strong>Target format</strong>
-            <small>When the site does not force a type</small>
+            <small>Options update for the selected file</small>
           </span>
           <select data-cv-format>
-            <option value="png">PNG</option>
-            <option value="jpeg">JPEG</option>
-            <option value="webp">WebP</option>
+            <option value="image/png">PNG</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/webp">WebP</option>
+            <option value="application/pdf">PDF</option>
           </select>
         </label>
 
@@ -162,11 +159,17 @@
       </div>
       <p class="status" id="status" hidden>Saved</p>
     </main>
+    <script src="../lib/vendor/heic2any.min.js"></script>
+    <script src="../lib/vendor/mammoth.browser.min.js"></script>
     <script src="../lib/mime.js"></script>
     <script src="../lib/converters/image.js"></script>
+    <script src="../lib/converters/pdf-write.js"></script>
+    <script src="../lib/converters/heic.js"></script>
+    <script src="../lib/converters/docx.js"></script>
+    <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
-    <script src="converter.js"></script>
+    <script type="module" src="boot-converters.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

@@ -23,6 +23,8 @@
 
   const pendingPreview = new Map();
   let previewSeq = 0;
+  const pendingHostConvert = new Map();
+  let hostConvertSeq = 0;
 
   /** @type {WeakMap<HTMLInputElement, string>} original accept before we neutralize */
   const savedAccept = new WeakMap();
@@ -48,6 +50,23 @@
       if (entry) {
         pendingPreview.delete(id);
         entry.resolve(Boolean(accepted));
+      }
+    }
+    if (data.type === "convert-result") {
+      const { id, ok, file, error } = data.payload || {};
+      const entry = pendingHostConvert.get(id);
+      if (entry) {
+        pendingHostConvert.delete(id);
+        if (ok && file) {
+          entry.resolve(
+            new File([file.bytes], file.name, {
+              type: file.type || "",
+              lastModified: file.lastModified || Date.now()
+            })
+          );
+        } else {
+          entry.reject(new Error(error || "Host conversion failed"));
+        }
       }
     }
   });
@@ -130,7 +149,11 @@
 
     let converted;
     try {
-      converted = await Registry.convertFile(file, target);
+      if (Registry.needsHost && Registry.needsHost(file, target)) {
+        converted = await requestHostConvert(file, target);
+      } else {
+        converted = await Registry.convertFile(file, target);
+      }
     } catch (err) {
       postToBridge("error", { message: String(err && err.message ? err.message : err) });
       return file;
@@ -154,6 +177,28 @@
       toMime: target
     });
     return converted;
+  }
+
+  async function requestHostConvert(file, targetMime) {
+    const id = ++hostConvertSeq;
+    const bytes = await file.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      pendingHostConvert.set(id, { resolve, reject });
+      postToBridge("convert-request", {
+        id,
+        targetMime,
+        name: file.name,
+        type: file.type || Mime.mimeFromFile(file),
+        lastModified: file.lastModified || Date.now(),
+        bytes
+      });
+      setTimeout(() => {
+        if (pendingHostConvert.has(id)) {
+          pendingHostConvert.delete(id);
+          reject(new Error("Conversion timed out"));
+        }
+      }, 120000);
+    });
   }
 
   function requestPreview(original, converted, target) {

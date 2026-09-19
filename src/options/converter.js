@@ -3,7 +3,8 @@
  * Shared by the toolbar popup and the detached converter panel.
  *
  * Expects classic scripts already loaded:
- *   SwiftConvertMime, SwiftConvertImage, SwiftConvertStubs, SwiftConvertRegistry
+ *   SwiftConvertMime, converters, SwiftConvertRegistry
+ * And pdfjsLib when converting PDF → image.
  */
 (function () {
   const Mime = globalThis.SwiftConvertMime;
@@ -25,6 +26,7 @@
   const statusEl = root.querySelector("[data-cv-status]");
   const openPanelBtn = root.querySelector("[data-cv-open-panel]");
   const nameEl = root.querySelector("[data-cv-name]");
+  const previewEl = root.querySelector("[data-cv-preview]");
 
   /** @type {File | null} */
   let sourceFile = null;
@@ -32,6 +34,11 @@
   let convertedFile = null;
   /** @type {string | null} */
   let objectUrl = null;
+  /** @type {string | null} */
+  let previewUrl = null;
+
+  const DOCX =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
   function setStatus(text, kind) {
     if (!statusEl) return;
@@ -46,6 +53,17 @@
     }
   }
 
+  function revokePreview() {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrl = null;
+    }
+    if (previewEl) {
+      previewEl.classList.remove("show");
+      previewEl.innerHTML = "";
+    }
+  }
+
   function clearConverted() {
     convertedFile = null;
     revokeUrl();
@@ -57,14 +75,105 @@
     }
   }
 
+  function sourceKind(file) {
+    const mime = Mime.mimeFromFile(file);
+    if (mime === "image/heic" || mime === "image/heif") return "heic";
+    if (mime === "application/pdf") return "pdf";
+    if (mime === DOCX || mime === "application/msword") return "docx";
+    if (mime.startsWith("image/")) return "image";
+    return "other";
+  }
+
+  function optionsFor(file) {
+    const kind = sourceKind(file);
+    if (kind === "heic") {
+      return [
+        ["image/jpeg", "JPEG"],
+        ["image/png", "PNG"],
+        ["image/webp", "WebP"]
+      ];
+    }
+    if (kind === "pdf") {
+      return [
+        ["image/png", "PNG (page 1)"],
+        ["image/jpeg", "JPEG (page 1)"],
+        ["image/webp", "WebP (page 1)"]
+      ];
+    }
+    if (kind === "docx") {
+      return [
+        ["text/plain", "Plain text"],
+        ["text/html", "HTML"],
+        ["application/pdf", "PDF (text)"]
+      ];
+    }
+    if (kind === "image") {
+      return [
+        ["image/png", "PNG"],
+        ["image/jpeg", "JPEG"],
+        ["image/webp", "WebP"],
+        ["application/pdf", "PDF"]
+      ];
+    }
+    return [
+      ["image/png", "PNG"],
+      ["image/jpeg", "JPEG"]
+    ];
+  }
+
+  function refreshFormatOptions(file) {
+    if (!formatSelect) return;
+    const opts = optionsFor(file);
+    const previous = formatSelect.value;
+    formatSelect.innerHTML = "";
+    for (const [value, label] of opts) {
+      const o = document.createElement("option");
+      o.value = value;
+      o.textContent = label;
+      formatSelect.appendChild(o);
+    }
+    if (opts.some(([v]) => v === previous)) formatSelect.value = previous;
+  }
+
+  async function showSourcePreview(file) {
+    revokePreview();
+    if (!previewEl || !file) return;
+    const kind = sourceKind(file);
+    if (kind === "image" || kind === "heic") {
+      // HEIC may not preview natively — try object URL anyway
+      previewUrl = URL.createObjectURL(file);
+      const img = document.createElement("img");
+      img.alt = "Preview";
+      img.src = previewUrl;
+      img.onerror = () => {
+        previewEl.classList.remove("show");
+        previewEl.innerHTML = "";
+      };
+      previewEl.appendChild(img);
+      previewEl.classList.add("show");
+      return;
+    }
+    if (kind === "pdf") {
+      previewUrl = URL.createObjectURL(file);
+      const frame = document.createElement("iframe");
+      frame.title = "PDF preview";
+      frame.src = previewUrl;
+      previewEl.appendChild(frame);
+      previewEl.classList.add("show");
+    }
+  }
+
   function setSource(file) {
     sourceFile = file || null;
     clearConverted();
     if (nameEl) nameEl.textContent = file ? file.name : "No file selected";
     if (convertBtn) convertBtn.disabled = !file;
     if (file) {
+      refreshFormatOptions(file);
+      showSourcePreview(file);
       setStatus("Ready to convert", "ok");
     } else {
+      revokePreview();
       setStatus("");
     }
   }
@@ -80,17 +189,23 @@
       dragHandle.classList.add("ready");
     }
     setStatus(`Converted → ${file.name} (${file.type || "unknown"})`, "ok");
+    // Prefer showing conversion result for images
+    if ((file.type || "").startsWith("image/") && previewEl) {
+      revokePreview();
+      previewUrl = objectUrl;
+      objectUrl = null; // preview owns it; download will recreate
+      const img = document.createElement("img");
+      img.alt = "Converted preview";
+      img.src = previewUrl;
+      previewEl.appendChild(img);
+      previewEl.classList.add("show");
+      objectUrl = URL.createObjectURL(file);
+    }
   }
 
   async function runConvert() {
     if (!sourceFile) return;
-    const format = (formatSelect && formatSelect.value) || "png";
-    const target =
-      format === "jpeg" || format === "jpg"
-        ? "image/jpeg"
-        : format === "webp"
-          ? "image/webp"
-          : "image/png";
+    const target = (formatSelect && formatSelect.value) || "image/png";
 
     if (!Registry.canHandle(sourceFile, target)) {
       setStatus("Cannot convert this file to " + target, "bad");
@@ -122,12 +237,6 @@
     a.remove();
   }
 
-  /**
-   * Best-effort HTML5 drag-out for extension pages.
-   * Chrome often closes the *toolbar popup* when focus leaves, which cancels
-   * the drag — use the detached converter panel for reliable drag-out.
-   * DownloadURL + File items are both set for broader host-page support.
-   */
   function onDragStart(event) {
     if (!convertedFile) {
       event.preventDefault();
@@ -144,7 +253,6 @@
       /* some engines reject File on extension pages */
     }
     try {
-      // DownloadURL: mime:filename:url — works for many page drop targets / downloads
       const safeName = String(convertedFile.name).replace(/[:\r\n]/g, "_");
       dt.setData(
         "DownloadURL",
@@ -161,10 +269,7 @@
     }
   }
 
-  function onDragEnd() {
-    // Keep objectUrl alive so a successful drop can still fetch the blob URL
-    // briefly; revoke on next conversion / unload.
-  }
+  function onDragEnd() {}
 
   if (drop) {
     ["dragenter", "dragover"].forEach((type) => {
@@ -190,7 +295,6 @@
     fileInput.addEventListener("change", () => {
       const file = fileInput.files && fileInput.files[0];
       setSource(file || null);
-      // Allow re-selecting the same path later
       fileInput.value = "";
     });
   }
@@ -212,21 +316,23 @@
   if (openPanelBtn) {
     openPanelBtn.addEventListener("click", () => {
       const url = chrome.runtime.getURL("src/options/converter.html");
-      // Detached window survives blur — required for reliable drag-out from Chrome.
       if (chrome.windows && chrome.windows.create) {
         chrome.windows.create({
           url,
           type: "popup",
-          width: 420,
-          height: 560,
+          width: 440,
+          height: 640,
           focused: true
         });
       } else {
-        window.open(url, "swiftconvert-converter", "width=420,height=560");
+        window.open(url, "swiftconvert-converter", "width=440,height=640");
       }
     });
   }
 
-  window.addEventListener("unload", revokeUrl);
+  window.addEventListener("unload", () => {
+    revokeUrl();
+    revokePreview();
+  });
   setSource(null);
 })();

@@ -14,7 +14,18 @@
     svg: "image/svg+xml",
     ico: "image/x-icon",
     tif: "image/tiff",
-    tiff: "image/tiff"
+    tiff: "image/tiff",
+    heic: "image/heic",
+    heif: "image/heif"
+  };
+
+  const DOC_EXT = {
+    pdf: "application/pdf",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    doc: "application/msword",
+    txt: "text/plain",
+    html: "text/html",
+    htm: "text/html"
   };
 
   const EXT_FOR_MIME = {
@@ -24,9 +35,13 @@
     "image/webp": "webp",
     "image/bmp": "bmp",
     "image/avif": "avif",
+    "image/heic": "heic",
+    "image/heif": "heif",
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-    "application/msword": "doc"
+    "application/msword": "doc",
+    "text/plain": "txt",
+    "text/html": "html"
   };
 
   function normalizeMime(m) {
@@ -40,12 +55,12 @@
   }
 
   function mimeFromExt(ext) {
-    return IMAGE_EXT[ext] || "";
+    return IMAGE_EXT[ext] || DOC_EXT[ext] || "";
   }
 
   function mimeFromFile(file) {
     const t = normalizeMime(file && file.type);
-    if (t) return t;
+    if (t && t !== "application/octet-stream") return t;
     return mimeFromExt(extFromName(file && file.name));
   }
 
@@ -56,10 +71,6 @@
     return "bin";
   }
 
-  /**
-   * Parse an accept attribute into concrete MIME types and extensions.
-   * Returns { mimes: string[], exts: string[], raw: string }
-   */
   function parseAccept(accept) {
     const raw = (accept || "").trim();
     const mimes = [];
@@ -79,7 +90,6 @@
       } else if (token.includes("/")) {
         mimes.push(normalizeMime(token));
       } else {
-        // bare token like "png"
         exts.push(token);
         const mime = mimeFromExt(token);
         if (mime) mimes.push(mime);
@@ -100,10 +110,24 @@
     }
     const ext = extForMime(m);
     if (acceptInfo.exts.includes(ext)) return true;
-    // jpeg/jpg alias
     if (ext === "jpg" && acceptInfo.exts.includes("jpeg")) return true;
     if (ext === "jpeg" && acceptInfo.exts.includes("jpg")) return true;
+    if (ext === "heic" && acceptInfo.exts.includes("heif")) return true;
+    if (ext === "heif" && acceptInfo.exts.includes("heic")) return true;
     return false;
+  }
+
+  function pickPreferredImage(imageTargets, preferredImageFormat) {
+    if (preferredImageFormat && preferredImageFormat !== "auto") {
+      const pref = normalizeMime(
+        preferredImageFormat.includes("/")
+          ? preferredImageFormat
+          : `image/${preferredImageFormat === "jpg" ? "jpeg" : preferredImageFormat}`
+      );
+      if (imageTargets.includes(pref)) return pref;
+    }
+    if (imageTargets.includes("image/png")) return "image/png";
+    return imageTargets[0];
   }
 
   /**
@@ -115,29 +139,67 @@
     const sourceMime = mimeFromFile(file);
 
     if (!acceptInfo.mimes.length && !acceptInfo.exts.length) {
-      return null; // nothing to enforce
+      return null;
     }
 
     if (mimeMatchesAccept(sourceMime, acceptInfo)) {
-      return null; // already acceptable
+      return null;
     }
 
-    // Prefer a concrete image target from accept list
     const concrete = acceptInfo.mimes.filter((m) => !m.endsWith("/*"));
     const imageTargets = concrete.filter((m) => m.startsWith("image/"));
+    const isHeic =
+      sourceMime === "image/heic" ||
+      sourceMime === "image/heif" ||
+      sourceMime === "image/heic-sequence";
+    const isPdf = sourceMime === "application/pdf";
+    const isDocx =
+      sourceMime ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      sourceMime === "application/msword";
 
-    if (imageTargets.length) {
-      if (preferredImageFormat && preferredImageFormat !== "auto") {
-        const pref = normalizeMime(
-          preferredImageFormat.includes("/")
-            ? preferredImageFormat
-            : `image/${preferredImageFormat === "jpg" ? "jpeg" : preferredImageFormat}`
-        );
-        if (imageTargets.includes(pref)) return pref;
+    // HEIC / PDF page → preferred raster when field wants images
+    if ((isHeic || isPdf) && imageTargets.length) {
+      return pickPreferredImage(imageTargets, preferredImageFormat);
+    }
+    if ((isHeic || isPdf) && acceptInfo.exts.some((e) => IMAGE_EXT[e])) {
+      for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+        if (acceptInfo.exts.includes(ext)) return mimeFromExt(ext === "jpeg" ? "jpg" : ext);
       }
-      // Prefer PNG when listed (lossless, widely accepted), else first
-      if (imageTargets.includes("image/png")) return "image/png";
-      return imageTargets[0];
+      for (const ext of acceptInfo.exts) {
+        if (IMAGE_EXT[ext]) return IMAGE_EXT[ext];
+      }
+    }
+    if ((isHeic || isPdf) && acceptInfo.mimes.some((m) => m === "image/*")) {
+      return pickPreferredImage(["image/png", "image/jpeg"], preferredImageFormat);
+    }
+
+    // DOCX → text / html / pdf
+    if (isDocx) {
+      if (concrete.includes("application/pdf") || acceptInfo.exts.includes("pdf")) {
+        return "application/pdf";
+      }
+      if (concrete.includes("text/html") || acceptInfo.exts.includes("html") || acceptInfo.exts.includes("htm")) {
+        return "text/html";
+      }
+      if (concrete.includes("text/plain") || acceptInfo.exts.includes("txt")) {
+        return "text/plain";
+      }
+      if (acceptInfo.mimes.some((m) => m === "text/*")) return "text/plain";
+    }
+
+    // Raster images → PDF when field wants PDF
+    if (
+      sourceMime.startsWith("image/") &&
+      sourceMime !== "image/svg+xml" &&
+      !isHeic &&
+      (concrete.includes("application/pdf") || acceptInfo.exts.includes("pdf"))
+    ) {
+      return "application/pdf";
+    }
+
+    if (imageTargets.length && sourceMime.startsWith("image/")) {
+      return pickPreferredImage(imageTargets, preferredImageFormat);
     }
 
     // Extension-only accept (e.g. ".png")
@@ -145,7 +207,7 @@
       for (const ext of acceptInfo.exts) {
         const mime = mimeFromExt(ext);
         if (mime) {
-          if (preferredImageFormat && preferredImageFormat !== "auto") {
+          if (preferredImageFormat && preferredImageFormat !== "auto" && IMAGE_EXT[ext]) {
             const prefExt =
               preferredImageFormat === "jpeg" ? "jpg" : preferredImageFormat;
             if (acceptInfo.exts.includes(prefExt) || acceptInfo.exts.includes(preferredImageFormat)) {
@@ -158,12 +220,10 @@
       }
     }
 
-    // image/* wildcard but source is non-image — skip (can't invent pixels from PDF here)
     if (acceptInfo.mimes.some((m) => m === "image/*") && sourceMime.startsWith("image/")) {
       return null;
     }
 
-    // Non-image targets (stubs later): return first concrete mime
     if (concrete.length) return concrete[0];
     return null;
   }
@@ -183,7 +243,8 @@
     mimeMatchesAccept,
     inferTargetMime,
     renameWithExt,
-    IMAGE_EXT
+    IMAGE_EXT,
+    DOC_EXT
   };
 
   root.SwiftConvertMime = api;

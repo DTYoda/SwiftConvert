@@ -52,6 +52,13 @@
     if (sourceMime === "image/svg+xml") {
       throw new Error("SVG conversion not supported in this slice");
     }
+    if (
+      sourceMime === "image/heic" ||
+      sourceMime === "image/heif" ||
+      sourceMime === "image/heic-sequence"
+    ) {
+      throw new Error("HEIC/HEIF requires the SwiftConvert host converter");
+    }
 
     const bitmap = await blobToImageBitmap(file);
     const w = bitmap.width || bitmap.naturalWidth;
@@ -105,6 +112,9 @@
     return (
       src.startsWith("image/") &&
       src !== "image/svg+xml" &&
+      src !== "image/heic" &&
+      src !== "image/heif" &&
+      src !== "image/heic-sequence" &&
       targetMime.startsWith("image/")
     );
   }
