@@ -35,11 +35,11 @@ Converter self-test (no extension required for the convert host libs): [http://1
 
 ### Manual tools
 
-Toolbar popup and **Open tools panel** share one flow: pick or drop a file, check **Convert** and/or **Compress**, then **Run**. When both are enabled, convert runs first, then compress. After processing, a before/after wipe slider lets you **Accept** (enable download / drag-out) or **Cancel** (re-tweak). Use the tools panel for reliable drag onto a webpage.
+Toolbar popup and **Open tools panel** share one flow: pick or drop a file, check **Convert** and/or **Compress**, then **Run**. The format selector appears only when **Convert** is checked (compress keeps the current type; PNG may become JPEG when fitting a target size). When both are enabled, convert runs first, then compress. After processing, a before/after wipe slider lets you **Accept** (enable download / drag-out) or **Cancel** (re-tweak). Use the tools panel for reliable drag onto a webpage.
 
 ### Preview before upload
 
-When **Preview before upload** is on, automatic convert/compress shows the same before/after visualizer on the page. **Upload new file** continues with the processed file; **Keep original**, backdrop click, Escape, or a 60s timeout keeps the original and does not upload the change.
+When **Preview before upload** is on, automatic convert/compress shows the same before/after visualizer on the page (stacked above field badges). **Upload new file** continues with the processed file; **Keep original**, backdrop click, Escape, or a 60s timeout keeps the original and does not upload the change. While work is in progress, a corner brand mark with a subtle spinner appears; it hides when the preview/toast shows or on idle.
 
 ## Conversion matrix
 

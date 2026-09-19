@@ -31,7 +31,6 @@
   const quality = root.querySelector("[data-tool-quality]");
   const maxW = root.querySelector("[data-tool-max-w]");
   const maxH = root.querySelector("[data-tool-max-h]");
-  const cpFormat = root.querySelector("[data-tool-cp-format]");
   const runBtn = root.querySelector("[data-tool-run]");
   const downloadBtn = root.querySelector("[data-tool-download]");
   const dragHandle = root.querySelector("[data-tool-drag]");
@@ -363,12 +362,8 @@
         }
         setStatus(convertOn ? "Compressing…" : "Compressing…");
         const mode = (modeSelect && modeSelect.value) || "size";
-        const mime =
-          (cpFormat && cpFormat.value) ||
-          Mime.mimeFromFile(working) ||
-          "image/jpeg";
+        // Keep source/converted type; compress auto-switches PNG→JPEG when chasing a byte budget.
         const opts = {
-          mime,
           fileName: working.name,
           maxWidth: maxW && maxW.value ? Number(maxW.value) : 0,
           maxHeight: maxH && maxH.value ? Number(maxH.value) : 0
@@ -489,7 +484,7 @@
   }
 
   ["input", "change"].forEach((evt) => {
-    [formatSelect, targetKb, quality, maxW, maxH, cpFormat].forEach((el) => {
+    [formatSelect, targetKb, quality, maxW, maxH].forEach((el) => {
       if (!el) return;
       el.addEventListener(evt, () => {
         clearResult();
