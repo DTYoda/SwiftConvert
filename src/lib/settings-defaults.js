@@ -1,9 +1,13 @@
 /** Default SwiftConvert settings (shared shape for options + runtime). */
 export const DEFAULT_SETTINGS = {
-  enabled: true,
   previewBeforeUpload: false,
   preferredImageFormat: "auto", // auto | png | jpeg | webp
+  /** Corner notices during and after convert/compress. */
   showQuietBadge: true,
+  /** Show the SwiftConvert icon next to covered upload fields. */
+  showFieldBadge: true,
+  /** Auto-convert mismatched uploads to the format the site accepts. */
+  autoConvert: true,
   /** Auto-compress oversized images on upload. */
   autoCompress: true,
   /**

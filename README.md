@@ -4,7 +4,7 @@ Browser extension that intercepts file uploads and converts mismatched files to 
 
 <img src="icons/icon256.png" alt="SwiftConvert logo" width="64" height="64" />
 
-Invisible by default when enabled. Optional preview-before-upload for quality checks on complex converts. Quiet conversion toast is **on by default**.
+Invisible by default when auto-convert / auto-compress are on. Optional preview-before-upload for quality checks on complex converts. Activity notices (in progress + finished) are **on by default**.
 
 ## Load unpacked (Chrome / Edge / Brave)
 
@@ -26,7 +26,7 @@ Firefox (MV3): open `about:debugging` → This Firefox → Load Temporary Add-on
    ```
 
 2. Open [http://127.0.0.1:8765/demo/](http://127.0.0.1:8765/demo/).
-3. Ensure SwiftConvert is **enabled** (toolbar popup).
+3. Ensure **Auto-convert** (and **Auto-compress** for the size-limit fixture) are on in the toolbar popup **Settings** tab.
 4. On **Native file input**, choose `demo/sample.jpg` — result should be PNG.
 5. On **Auto-compress (size limit)**, choose `demo/sample-large.jpg` — result should be ≤ 80 KB.
 6. Also try `sample.heic` on HEIC→JPEG, `sample.pdf` on PDF→PNG, and `sample.docx` on DOCX→text.
@@ -35,11 +35,11 @@ Converter self-test (no extension required for the convert host libs): [http://1
 
 ### Manual tools
 
-Toolbar popup and **Open tools panel** share one flow: pick or drop a file, check **Convert** and/or **Compress**, then **Run**. The format selector appears only when **Convert** is checked (compress keeps the current type; PNG may become JPEG when fitting a target size). When both are enabled, convert runs first, then compress. After processing, a before/after wipe slider lets you **Accept** (enable download / drag-out) or **Cancel** (re-tweak). Use the tools panel for reliable drag onto a webpage.
+The popup and options UI split into **Settings** and **Tools**. On **Tools**, pick or drop a file, check **Convert** and/or **Compress**, then **Run**. The format selector appears only when **Convert** is checked (compress keeps the current type; PNG may become JPEG when fitting a target size). When both are enabled, convert runs first, then compress. After processing, a before/after wipe slider lets you **Accept** (enable download / drag-out) or **Cancel** (re-tweak). Use the dedicated tools panel for reliable drag onto a webpage.
 
 ### Preview before upload
 
-When **Preview before upload** is on, automatic convert/compress shows the same before/after visualizer on the page (stacked above field badges). **Upload new file** continues with the processed file; **Keep original**, backdrop click, Escape, or a 60s timeout keeps the original and does not upload the change. While work is in progress, a corner brand mark with a subtle spinner appears; it hides when the preview/toast shows or on idle.
+When **Preview before upload** is on, automatic convert/compress shows the same before/after visualizer on the page (stacked above field badges). **Upload new file** continues with the processed file; **Keep original**, backdrop click, Escape, or a 60s timeout keeps the original and does not upload the change. While work is in progress, a corner notice describes what is happening (e.g. `Converting photo.heic to PNG…`); it hides when the preview/toast shows or on idle.
 
 ## Conversion matrix
 
@@ -56,7 +56,7 @@ Complex converts (HEIC / PDF→image / DOCX) run in a hidden extension-page ifra
 
 ## Auto-compress (detect-first)
 
-Pipeline: **convert format first** (if needed), then **compress** if the file still exceeds a size limit.
+Pipeline: **convert format first** (if auto-convert is on and needed), then **compress** if auto-compress is on and the file still exceeds a size limit.
 
 Limits are inferred from (in order):
 
@@ -64,20 +64,27 @@ Limits are inferred from (in order):
 2. Nearby copy such as “max 2MB”, “Maximum upload size: 5 MB”, “up to 500 KB”.
 3. Optional **default max (MB)** — only when **Use default max when no limit found** is enabled in settings.
 
-By default SwiftConvert does **not** compress unless a limit is detected (detect-first). Quiet toast can mention compression and before/after sizes.
+By default SwiftConvert does **not** compress unless a limit is detected (detect-first). Activity notices can mention compression and before/after sizes.
 
 ## Options
 
-- **Enable SwiftConvert** — master switch
-- **Preview before upload** — before/after slider; Accept uploads the new file, Cancel keeps the original (also covers auto-compress)
-- **Quiet conversion toast** — brief on-page notice (**default: on**)
+Popup and options navigate between **Settings** and **Tools**.
+
+**Settings**
+
+- **Auto-convert** — convert mismatched uploads to the accepted format (**default: on**)
 - **Auto-compress** — shrink oversized images when a limit is found (**default: on**)
+- **Field badges** — SwiftConvert icon next to covered upload fields (**default: on**)
+- **Activity notices** — corner notices during and after convert/compress (**default: on**; was “Quiet conversion toast”)
+- **Preview before upload** — before/after slider; Accept uploads the new file, Cancel keeps the original
 - **Use default max when no limit found** — optional fallback (**default: off**, detect-first)
 - **Default max size (MB)** — used only with the fallback above
 - **Compress quality** — high / balanced / smaller file
 - **Preferred image format** — when a field accepts multiple image types (`auto` prefers PNG)
 
-Covered fields show the SwiftConvert logo mark when the extension is enabled.
+There is no global enable/disable — turn off auto-convert and auto-compress (and other toggles) to stop automatic behavior.
+
+**Tools** — manual convert / compress with download and drag-out.
 
 ## Limitations
 

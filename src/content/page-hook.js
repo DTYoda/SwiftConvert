@@ -17,15 +17,34 @@
 
   const CHANNEL = "swiftconvert";
   let settings = {
-    enabled: true,
     previewBeforeUpload: false,
     preferredImageFormat: "auto",
     showQuietBadge: true,
+    showFieldBadge: true,
+    autoConvert: true,
     autoCompress: true,
     useDefaultMaxWhenNoLimit: false,
     defaultMaxSizeMB: 2,
     compressQuality: "balanced"
   };
+
+  function autoPipelineActive() {
+    return settings.autoConvert !== false || settings.autoCompress !== false;
+  }
+
+  function shortFormatLabel(mime) {
+    if (!mime) return "file";
+    const m = String(mime).toLowerCase();
+    if (m === "image/png" || m === "png") return "PNG";
+    if (m === "image/jpeg" || m === "image/jpg" || m === "jpeg" || m === "jpg") return "JPEG";
+    if (m === "image/webp" || m === "webp") return "WebP";
+    if (m === "application/pdf" || m === "pdf") return "PDF";
+    if (m.includes("wordprocessingml") || m === "docx") return "DOCX";
+    if (m === "text/plain") return "text";
+    if (m === "text/html") return "HTML";
+    const slash = m.lastIndexOf("/");
+    return (slash >= 0 ? m.slice(slash + 1) : m).toUpperCase();
+  }
 
   const pendingPreview = new Map();
   let previewSeq = 0;
@@ -89,13 +108,13 @@
   }
   markHooked();
 
-  /** Mark upload controls SwiftConvert will handle (for the quiet field badge). */
+  /** Mark upload controls SwiftConvert will handle (for the field badge). */
   function refreshCoverageMarks() {
     try {
       document.querySelectorAll("[data-swiftconvert-covered]").forEach((el) => {
         el.removeAttribute("data-swiftconvert-covered");
       });
-      if (!settings.enabled) {
+      if (!autoPipelineActive()) {
         postToBridge("coverage", { count: 0 });
         return;
       }
@@ -139,20 +158,35 @@
   }
 
   async function maybeConvertFile(file, ctx) {
-    if (!settings.enabled || !file) return file;
+    if (!file || !autoPipelineActive()) return file;
     const accept = acceptFromContext(ctx);
-    const target = Mime.inferTargetMime(file, accept, settings.preferredImageFormat);
+    const target =
+      settings.autoConvert !== false
+        ? Mime.inferTargetMime(file, accept, settings.preferredImageFormat)
+        : null;
 
     let working = file;
     let didConvert = false;
     let didCompress = false;
     let compressMeta = null;
     let processing = false;
+    const likelyCompress =
+      settings.autoCompress !== false &&
+      Compress &&
+      SizeLimit &&
+      Compress.canCompress(file) &&
+      (() => {
+        const limit = SizeLimit.resolveMaxBytes(ctx, settings);
+        return Boolean(limit && limit.bytes > 0 && file.size > limit.bytes);
+      })();
 
-    const beginProcessing = () => {
-      if (processing) return;
-      processing = true;
-      postToBridge("processing", { active: true });
+    const beginProcessing = (message) => {
+      if (!processing) {
+        processing = true;
+        postToBridge("processing", { active: true, message: message || "Working…" });
+      } else if (message) {
+        postToBridge("processing", { active: true, message, refresh: true });
+      }
     };
     const endProcessing = () => {
       if (!processing) return;
@@ -161,9 +195,13 @@
     };
 
     try {
-      if (target && Registry.canHandle(file, target)) {
+      if (settings.autoConvert !== false && target && Registry.canHandle(file, target)) {
         try {
-          beginProcessing();
+          beginProcessing(
+            likelyCompress
+              ? `Converting ${file.name || "file"} to ${shortFormatLabel(target)} and compressing…`
+              : `Converting ${file.name || "file"} to ${shortFormatLabel(target)}…`
+          );
           if (Registry.needsHost && Registry.needsHost(file, target)) {
             working = await requestHostConvert(file, target);
           } else {
@@ -174,7 +212,7 @@
           postToBridge("error", { message: String(err && err.message ? err.message : err) });
           working = file;
         }
-      } else if (target && !Registry.canHandle(file, target)) {
+      } else if (settings.autoConvert !== false && target && !Registry.canHandle(file, target)) {
         postToBridge("skip", {
           reason: "no-converter",
           name: file.name,
@@ -188,7 +226,8 @@
         const limit = SizeLimit.resolveMaxBytes(ctx, settings);
         if (limit && limit.bytes > 0 && working.size > limit.bytes) {
           try {
-            beginProcessing();
+            const compressLabel = working.name || file.name || "image";
+            beginProcessing(`Compressing ${compressLabel}…`);
             const result = await Compress.compressImageToFit(working, limit.bytes, {
               qualityPref: settings.compressQuality || "balanced",
               mime: Mime.mimeFromFile(working)
@@ -355,7 +394,8 @@
 
   function shouldSkipAcceptNeutralize(input) {
     if (!(input instanceof HTMLInputElement) || input.type !== "file") return true;
-    if (!settings.enabled) return true;
+    // Accept neutralize is for format conversion (open mismatched types in the OS dialog).
+    if (settings.autoConvert === false) return true;
     // Directory pickers and capture (camera/mic) must keep their constraints.
     if (input.webkitdirectory || input.hasAttribute("webkitdirectory")) return true;
     if (input.hasAttribute("capture")) return true;
@@ -525,7 +565,7 @@
   }
 
   async function processInputFiles(input, fileList) {
-    if (!settings.enabled || !input || input.type !== "file") return false;
+    if (!autoPipelineActive() || !input || input.type !== "file") return false;
     if (silentAssign.has(input)) return false;
     const files = Array.from(
       fileList || (nativeFilesGetter ? nativeFilesGetter.call(input) : input.files) || []
@@ -541,6 +581,7 @@
   }
 
   function filesNeedConversion(files, accept) {
+    if (settings.autoConvert === false) return false;
     return Array.from(files || []).some((f) => {
       const t = Mime.inferTargetMime(f, accept, settings.preferredImageFormat);
       return t && Registry.canHandle(f, t);
@@ -568,7 +609,7 @@
     const t = event.target;
     if (!(t instanceof HTMLInputElement) || t.type !== "file") return;
     if (silentAssign.has(t)) return;
-    if (!settings.enabled) return;
+    if (!autoPipelineActive()) return;
 
     const snapshot = nativeFilesGetter ? nativeFilesGetter.call(t) : t.files;
     const accept = effectiveAccept(t);
@@ -774,7 +815,7 @@
     "drop",
     (event) => {
       if (event.__swiftconvert) return;
-      if (!settings.enabled) return;
+      if (!autoPipelineActive()) return;
       const dt = event.dataTransfer;
       if (!dt || !dt.files || !dt.files.length) return;
 
@@ -806,7 +847,7 @@
   // Neutralize accept during drag-over on file inputs so the browser will allow the
   // drop gesture; conversion still uses savedAccept via effectiveAccept.
   function onDragOverFileInput(event) {
-    if (!settings.enabled) return;
+    if (settings.autoConvert === false) return;
     const input = resolveDropContext(event).input;
     if (input) prepareAcceptForPicker(input);
   }
@@ -836,7 +877,7 @@
 
   function patchFormDataMethod(original) {
     return function (name, value, filename) {
-      if (!settings.enabled || !(value instanceof File) || value instanceof Blob === false) {
+      if (!autoPipelineActive() || !(value instanceof File) || value instanceof Blob === false) {
         return original.apply(this, arguments);
       }
       // FormData often lacks accept context — try last focused file input
@@ -875,7 +916,7 @@
   // ─── fetch / XHR — wait for in-flight converts, rewrite FormData Files ────
   const nativeFetch = window.fetch;
   window.fetch = async function (input, init) {
-    if (settings.enabled) {
+    if (autoPipelineActive()) {
       await awaitPending();
       if (init && init.body instanceof FormData) {
         init = { ...init, body: await rewriteFormData(init.body) };
@@ -891,7 +932,7 @@
     return xhrOpen.apply(this, arguments);
   };
   XMLHttpRequest.prototype.send = function (body) {
-    if (!settings.enabled || !(body instanceof FormData)) {
+    if (!autoPipelineActive() || !(body instanceof FormData)) {
       return xhrSend.apply(this, arguments);
     }
     const xhr = this;
