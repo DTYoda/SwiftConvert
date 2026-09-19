@@ -51,8 +51,8 @@
         <div class="tool-section" data-tool-convert-opts>
           <label class="row stack cv-format">
             <span>
-              <strong>Target format</strong>
-              <small>Options update for the selected file</small>
+              <strong>Format</strong>
+              <small>Convert target — options update for the selected file</small>
             </span>
             <select data-tool-format>
               <option value="image/png">PNG</option>
@@ -92,15 +92,11 @@
               <strong>Max height</strong>
               <input type="number" data-tool-max-h min="0" max="10000" step="1" placeholder="none" />
             </label>
-            <label data-cp-for="always" style="grid-column: 1 / -1">
-              <strong>Output format</strong>
-              <select data-tool-cp-format>
-                <option value="image/jpeg">JPEG</option>
-                <option value="image/webp">WebP</option>
-                <option value="image/png">PNG</option>
-              </select>
-            </label>
           </div>
+          <p class="cv-note" data-cp-for="size" style="margin-top: 0">
+            Keeps the current image type. When chasing a target size, PNG may switch to JPEG
+            automatically for a smaller byte budget.
+          </p>
         </div>
 
         <div class="cv-actions">

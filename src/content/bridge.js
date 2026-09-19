@@ -23,10 +23,13 @@
   let settings = { ...DEFAULTS };
   let host = null;
   let shadow = null;
+  let overlayHost = null;
+  let overlayShadow = null;
   let quietTimer = null;
   let injectAttempted = false;
   let badgeLayer = null;
   let badgeRaf = 0;
+  let processingDepth = 0;
 
   /** @type {HTMLIFrameElement | null} */
   let convertFrame = null;
@@ -165,9 +168,14 @@
         scheduleBadgeRefresh();
         break;
       case "preview":
+        setProcessing(false, { clear: true });
         showPreview(data.payload);
         break;
+      case "processing":
+        setProcessing(Boolean(data.payload && data.payload.active));
+        break;
       case "converted-quiet":
+        setProcessing(false, { clear: true });
         showQuietToast(data.payload);
         break;
       case "converted":
@@ -266,12 +274,12 @@
   }
 
   function ensureHost() {
-    if (host) return shadow;
+    if (host && shadow) return shadow;
     host = document.createElement("div");
     host.id = "swiftconvert-root";
     host.style.all = "initial";
     host.style.position = "fixed";
-    host.style.zIndex = "2147483646";
+    host.style.zIndex = "2147483645";
     host.style.top = "0";
     host.style.left = "0";
     host.style.width = "0";
@@ -282,12 +290,26 @@
     return shadow;
   }
 
+  /** Modal preview + processing sit above field badges on a separate stacking root. */
+  function ensureOverlayHost() {
+    if (overlayHost && overlayShadow) return overlayShadow;
+    overlayHost = document.createElement("div");
+    overlayHost.id = "swiftconvert-overlay";
+    overlayHost.setAttribute("data-swiftconvert", "overlay");
+    overlayHost.style.cssText =
+      "all:initial;position:fixed;inset:0;width:100%;height:100%;" +
+      "z-index:2147483647;pointer-events:none;isolation:isolate;";
+    overlayShadow = overlayHost.attachShadow({ mode: "closed" });
+    (document.documentElement || document.body).appendChild(overlayHost);
+    return overlayShadow;
+  }
+
   function ensureBadgeLayer() {
     const root = ensureHost();
     if (badgeLayer) return badgeLayer;
     const style = document.createElement("style");
     style.textContent = `
-      #sc-badges { position: fixed; inset: 0; pointer-events: none; z-index: 2147483645; }
+      #sc-badges { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
       .sc-badge {
         position: fixed;
         width: 18px; height: 18px;
@@ -397,7 +419,7 @@
       const style = document.createElement("style");
       style.textContent = `
         #sc-toast {
-          position: fixed; right: 16px; bottom: 16px;
+          position: fixed; right: 16px; bottom: 16px; z-index: 2;
           display: flex; align-items: center; gap: 10px;
           font: 500 13px/1.4 Outfit, "Trebuchet MS", "Segoe UI", sans-serif;
           background: #0c1f2e; color: #e8f7f4;
@@ -421,6 +443,66 @@
     toast.classList.add("show");
     clearTimeout(quietTimer);
     quietTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  function setProcessing(active, opts) {
+    const clearAll = Boolean(opts && opts.clear);
+    if (clearAll || active === false) {
+      if (clearAll) processingDepth = 0;
+      else processingDepth = Math.max(0, processingDepth - 1);
+    } else if (active) {
+      processingDepth += 1;
+    }
+
+    const root = ensureOverlayHost();
+    let mark = root.getElementById("sc-processing");
+    if (!mark) {
+      const style = document.createElement("style");
+      style.textContent = `
+        #sc-processing {
+          position: fixed; right: 16px; bottom: 16px; z-index: 2;
+          display: none; align-items: center; justify-content: center;
+          width: 40px; height: 40px; border-radius: 12px;
+          background: #0c1f2e; box-shadow: 0 10px 28px rgba(12,31,46,.28);
+          pointer-events: none;
+        }
+        #sc-processing.show { display: flex; }
+        #sc-processing img {
+          width: 22px; height: 22px; border-radius: 6px;
+          animation: sc-pulse 1.1s ease-in-out infinite;
+        }
+        #sc-processing::after {
+          content: "";
+          position: absolute; inset: 4px;
+          border-radius: 10px;
+          border: 2px solid transparent;
+          border-top-color: #5fd0c2;
+          animation: sc-spin 0.85s linear infinite;
+        }
+        @keyframes sc-spin { to { transform: rotate(360deg); } }
+        @keyframes sc-pulse {
+          0%, 100% { opacity: 0.72; transform: scale(0.96); }
+          50% { opacity: 1; transform: scale(1); }
+        }
+      `;
+      root.appendChild(style);
+      mark = document.createElement("div");
+      mark.id = "sc-processing";
+      mark.setAttribute("role", "status");
+      mark.setAttribute("aria-live", "polite");
+      mark.setAttribute("aria-label", "SwiftConvert working");
+      mark.innerHTML = `<img alt="" width="22" height="22" />`;
+      mark.querySelector("img").src = chrome.runtime.getURL("icons/icon48.png");
+      root.appendChild(mark);
+    }
+
+    if (processingDepth > 0) {
+      mark.classList.add("show");
+      mark.setAttribute("aria-hidden", "false");
+    } else {
+      mark.classList.remove("show");
+      mark.setAttribute("aria-hidden", "true");
+    }
   }
 
   function formatQuietMessage(payload) {
@@ -480,7 +562,7 @@
   }
 
   function showPreview(payload) {
-    const root = ensureHost();
+    const root = ensureOverlayHost();
     let panel = root.getElementById("sc-preview");
     if (!panel) {
       const style = document.createElement("style");
@@ -491,6 +573,8 @@
           font: 14px/1.45 Outfit, "Trebuchet MS", "Segoe UI", sans-serif;
           pointer-events: auto;
           padding: 16px;
+          z-index: 3;
+          isolation: isolate;
         }
         #sc-preview .card {
           background: linear-gradient(180deg, #ffffff 0%, #f3faf8 100%);

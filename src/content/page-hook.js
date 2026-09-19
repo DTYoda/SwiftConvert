@@ -147,99 +147,120 @@
     let didConvert = false;
     let didCompress = false;
     let compressMeta = null;
+    let processing = false;
 
-    if (target && Registry.canHandle(file, target)) {
-      try {
-        if (Registry.needsHost && Registry.needsHost(file, target)) {
-          working = await requestHostConvert(file, target);
-        } else {
-          working = await Registry.convertFile(file, target);
-        }
-        didConvert = working !== file;
-      } catch (err) {
-        postToBridge("error", { message: String(err && err.message ? err.message : err) });
-        working = file;
-      }
-    } else if (target && !Registry.canHandle(file, target)) {
-      postToBridge("skip", {
-        reason: "no-converter",
-        name: file.name,
-        from: Mime.mimeFromFile(file),
-        to: target
-      });
-    }
+    const beginProcessing = () => {
+      if (processing) return;
+      processing = true;
+      postToBridge("processing", { active: true });
+    };
+    const endProcessing = () => {
+      if (!processing) return;
+      processing = false;
+      postToBridge("processing", { active: false });
+    };
 
-    // After format conversion (or if already matching), compress to fit size limits.
-    if (settings.autoCompress && Compress && SizeLimit && Compress.canCompress(working)) {
-      const limit = SizeLimit.resolveMaxBytes(ctx, settings);
-      if (limit && limit.bytes > 0 && working.size > limit.bytes) {
+    try {
+      if (target && Registry.canHandle(file, target)) {
         try {
-          const result = await Compress.compressImageToFit(working, limit.bytes, {
-            qualityPref: settings.compressQuality || "balanced",
-            mime: Mime.mimeFromFile(working)
-          });
-          if (result.compressed) {
-            working = result.file;
-            didCompress = true;
-            compressMeta = {
-              fromBytes: result.fromBytes,
-              toBytes: result.toBytes,
-              limitBytes: limit.bytes,
-              limitSource: limit.source
-            };
+          beginProcessing();
+          if (Registry.needsHost && Registry.needsHost(file, target)) {
+            working = await requestHostConvert(file, target);
+          } else {
+            working = await Registry.convertFile(file, target);
           }
+          didConvert = working !== file;
         } catch (err) {
-          postToBridge("error", {
-            message: "Compress: " + String(err && err.message ? err.message : err)
+          postToBridge("error", { message: String(err && err.message ? err.message : err) });
+          working = file;
+        }
+      } else if (target && !Registry.canHandle(file, target)) {
+        postToBridge("skip", {
+          reason: "no-converter",
+          name: file.name,
+          from: Mime.mimeFromFile(file),
+          to: target
+        });
+      }
+
+      // After format conversion (or if already matching), compress to fit size limits.
+      if (settings.autoCompress && Compress && SizeLimit && Compress.canCompress(working)) {
+        const limit = SizeLimit.resolveMaxBytes(ctx, settings);
+        if (limit && limit.bytes > 0 && working.size > limit.bytes) {
+          try {
+            beginProcessing();
+            const result = await Compress.compressImageToFit(working, limit.bytes, {
+              qualityPref: settings.compressQuality || "balanced",
+              mime: Mime.mimeFromFile(working)
+            });
+            if (result.compressed) {
+              working = result.file;
+              didCompress = true;
+              compressMeta = {
+                fromBytes: result.fromBytes,
+                toBytes: result.toBytes,
+                limitBytes: limit.bytes,
+                limitSource: limit.source
+              };
+            }
+          } catch (err) {
+            postToBridge("error", {
+              message: "Compress: " + String(err && err.message ? err.message : err)
+            });
+          }
+        }
+      }
+
+      if (!didConvert && !didCompress) return file;
+
+      // Work finished — hide spinner before preview/toast so it doesn't sit under the dialog.
+      endProcessing();
+
+      if (settings.previewBeforeUpload && (didConvert || didCompress)) {
+        const ok = await requestPreview(file, working, target || Mime.mimeFromFile(working), {
+          didConvert,
+          didCompress
+        });
+        if (!ok) return file; // Cancel / dismiss / timeout → keep original
+      } else if (settings.showQuietBadge) {
+        if (didConvert && didCompress) {
+          postToBridge("converted-quiet", {
+            from: file.name,
+            to: working.name,
+            target: target || Mime.mimeFromFile(working),
+            compressed: true,
+            fromBytes: compressMeta && compressMeta.fromBytes,
+            toBytes: compressMeta && compressMeta.toBytes
+          });
+        } else if (didConvert) {
+          postToBridge("converted-quiet", {
+            from: file.name,
+            to: working.name,
+            target
+          });
+        } else if (didCompress) {
+          postToBridge("converted-quiet", {
+            from: file.name,
+            to: working.name,
+            compressed: true,
+            fromBytes: compressMeta && compressMeta.fromBytes,
+            toBytes: compressMeta && compressMeta.toBytes
           });
         }
       }
-    }
 
-    if (!didConvert && !didCompress) return file;
-
-    if (settings.previewBeforeUpload && (didConvert || didCompress)) {
-      const ok = await requestPreview(file, working, target || Mime.mimeFromFile(working), {
-        didConvert,
-        didCompress
+      postToBridge("converted", {
+        from: file.name,
+        to: working.name,
+        fromMime: Mime.mimeFromFile(file),
+        toMime: Mime.mimeFromFile(working),
+        compressed: didCompress,
+        compressMeta
       });
-      if (!ok) return file; // Cancel / dismiss / timeout → keep original
-    } else if (settings.showQuietBadge) {
-      if (didConvert && didCompress) {
-        postToBridge("converted-quiet", {
-          from: file.name,
-          to: working.name,
-          target: target || Mime.mimeFromFile(working),
-          compressed: true,
-          fromBytes: compressMeta && compressMeta.fromBytes,
-          toBytes: compressMeta && compressMeta.toBytes
-        });
-      } else if (didConvert) {
-        postToBridge("converted-quiet", {
-          from: file.name,
-          to: working.name,
-          target
-        });
-      } else if (didCompress) {
-        postToBridge("converted-quiet", {
-          from: file.name,
-          to: working.name,
-          compressed: true,
-          fromBytes: compressMeta && compressMeta.fromBytes,
-          toBytes: compressMeta && compressMeta.toBytes
-        });
-      }
+      return working;
+    } finally {
+      endProcessing();
     }
-
-    postToBridge("converted", {
-      from: file.name,
-      to: working.name,
-      fromMime: Mime.mimeFromFile(file),
-      toMime: Mime.mimeFromFile(working),
-      compressed: didCompress,
-      compressMeta
-    });
-    return working;
   }
 
   async function requestHostConvert(file, targetMime) {
@@ -952,5 +973,5 @@
   }
   refreshCoverageMarks();
 
-  postToBridge("hooked", { version: "0.3.0" });
+  postToBridge("hooked", { version: "0.3.5" });
 })();
