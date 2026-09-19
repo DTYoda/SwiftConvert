@@ -2,17 +2,18 @@
  * Background service worker — settings defaults + conversion telemetry badge.
  */
 const DEFAULTS = {
-  enabled: true,
   previewBeforeUpload: false,
   preferredImageFormat: "auto",
   showQuietBadge: true,
+  showFieldBadge: true,
+  autoConvert: true,
   autoCompress: true,
   useDefaultMaxWhenNoLimit: false,
   defaultMaxSizeMB: 2,
   compressQuality: "balanced"
 };
 
-const SETTINGS_SCHEMA_VERSION = 3;
+const SETTINGS_SCHEMA_VERSION = 4;
 
 chrome.runtime.onInstalled.addListener((details) => {
   chrome.storage.sync.get(null, (existing) => {
@@ -29,6 +30,17 @@ chrome.runtime.onInstalled.addListener((details) => {
       existing.showQuietBadge === false
     ) {
       toSet.showQuietBadge = true;
+    }
+    // v0.3.6: remove master "enabled" switch. Preserve prior off-state by
+    // turning off auto-convert, auto-compress, and field badges.
+    if (
+      details.reason === "update" &&
+      (existing.settingsSchemaVersion == null || existing.settingsSchemaVersion < 4) &&
+      existing.enabled === false
+    ) {
+      toSet.autoConvert = false;
+      toSet.autoCompress = false;
+      toSet.showFieldBadge = false;
     }
     if (existing.settingsSchemaVersion == null || existing.settingsSchemaVersion < SETTINGS_SCHEMA_VERSION) {
       toSet.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;

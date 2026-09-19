@@ -10,10 +10,11 @@
   const CHANNEL = "swiftconvert";
   const HOST_CHANNEL = "swiftconvert-host";
   const DEFAULTS = {
-    enabled: true,
     previewBeforeUpload: false,
     preferredImageFormat: "auto",
     showQuietBadge: true,
+    showFieldBadge: true,
+    autoConvert: true,
     autoCompress: true,
     useDefaultMaxWhenNoLimit: false,
     defaultMaxSizeMB: 2,
@@ -172,7 +173,10 @@
         showPreview(data.payload);
         break;
       case "processing":
-        setProcessing(Boolean(data.payload && data.payload.active));
+        setProcessing(Boolean(data.payload && data.payload.active), {
+          message: data.payload && data.payload.message,
+          refresh: Boolean(data.payload && data.payload.refresh)
+        });
         break;
       case "converted-quiet":
         setProcessing(false, { clear: true });
@@ -371,7 +375,7 @@
   }
 
   function renderCoverageBadges() {
-    if (!settings.enabled) {
+    if (settings.showFieldBadge === false) {
       if (badgeLayer) badgeLayer.textContent = "";
       return;
     }
@@ -447,11 +451,24 @@
 
   function setProcessing(active, opts) {
     const clearAll = Boolean(opts && opts.clear);
+    const refreshOnly = Boolean(opts && opts.refresh);
+    const message = (opts && opts.message) || "";
     if (clearAll || active === false) {
       if (clearAll) processingDepth = 0;
       else processingDepth = Math.max(0, processingDepth - 1);
-    } else if (active) {
+    } else if (active && !refreshOnly) {
       processingDepth += 1;
+    }
+
+    // Activity notices setting covers both in-progress and completion toasts.
+    if (settings.showQuietBadge === false) {
+      const rootEarly = overlayShadow;
+      const existing = rootEarly && rootEarly.getElementById("sc-processing");
+      if (existing) {
+        existing.classList.remove("show");
+        existing.setAttribute("aria-hidden", "true");
+      }
+      return;
     }
 
     const root = ensureOverlayHost();
@@ -461,23 +478,38 @@
       style.textContent = `
         #sc-processing {
           position: fixed; right: 16px; bottom: 16px; z-index: 2;
-          display: none; align-items: center; justify-content: center;
-          width: 40px; height: 40px; border-radius: 12px;
+          display: none; align-items: center; gap: 10px;
+          max-width: min(320px, calc(100vw - 32px));
+          padding: 10px 14px 10px 10px; border-radius: 12px;
           background: #0c1f2e; box-shadow: 0 10px 28px rgba(12,31,46,.28);
           pointer-events: none;
+          font: 500 12.5px/1.35 Outfit, "Trebuchet MS", "Segoe UI", sans-serif;
+          color: #e8f7f4;
         }
         #sc-processing.show { display: flex; }
+        #sc-processing .sc-proc-icon {
+          position: relative;
+          width: 28px; height: 28px; flex: 0 0 auto;
+          display: flex; align-items: center; justify-content: center;
+        }
         #sc-processing img {
-          width: 22px; height: 22px; border-radius: 6px;
+          width: 20px; height: 20px; border-radius: 5px;
           animation: sc-pulse 1.1s ease-in-out infinite;
         }
-        #sc-processing::after {
+        #sc-processing .sc-proc-icon::after {
           content: "";
-          position: absolute; inset: 4px;
-          border-radius: 10px;
+          position: absolute; inset: 0;
+          border-radius: 8px;
           border: 2px solid transparent;
           border-top-color: #5fd0c2;
           animation: sc-spin 0.85s linear infinite;
+        }
+        #sc-processing .sc-proc-text {
+          flex: 1 1 auto;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         @keyframes sc-spin { to { transform: rotate(360deg); } }
         @keyframes sc-pulse {
@@ -490,10 +522,20 @@
       mark.id = "sc-processing";
       mark.setAttribute("role", "status");
       mark.setAttribute("aria-live", "polite");
-      mark.setAttribute("aria-label", "SwiftConvert working");
-      mark.innerHTML = `<img alt="" width="22" height="22" />`;
+      mark.innerHTML =
+        `<span class="sc-proc-icon"><img alt="" width="20" height="20" /></span>` +
+        `<span class="sc-proc-text"></span>`;
       mark.querySelector("img").src = chrome.runtime.getURL("icons/icon48.png");
       root.appendChild(mark);
+    }
+
+    const textEl = mark.querySelector(".sc-proc-text");
+    if (message && textEl) {
+      textEl.textContent = message;
+      mark.setAttribute("aria-label", message);
+    } else if (textEl && !textEl.textContent) {
+      textEl.textContent = "Working…";
+      mark.setAttribute("aria-label", "SwiftConvert working");
     }
 
     if (processingDepth > 0) {
