@@ -266,27 +266,7 @@
     <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
-    <script>
-      (function () {
-        const tabs = document.querySelectorAll("[data-tool-tab]");
-        const convert = document.getElementById("manualConverter");
-        const compress = document.getElementById("manualCompressor");
-        function show(which) {
-          const isCompress = which === "compress";
-          convert.hidden = isCompress;
-          compress.hidden = !isCompress;
-          tabs.forEach((t) => {
-            t.setAttribute(
-              "aria-selected",
-              t.getAttribute("data-tool-tab") === which ? "true" : "false"
-            );
-          });
-        }
-        tabs.forEach((t) =>
-          t.addEventListener("click", () => show(t.getAttribute("data-tool-tab")))
-        );
-      })();
-    </script>
+    <script src="tool-tabs.js"></script>
     <script type="module" src="boot-converters.js"></script>
     <script src="options.js"></script>
   </body>

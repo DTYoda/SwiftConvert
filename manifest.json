@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
