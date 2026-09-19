@@ -451,6 +451,34 @@
     return (n / 1024).toFixed(1) + " KB";
   }
 
+  /** @type {string | null} */
+  let previewBeforeUrl = null;
+  /** @type {string | null} */
+  let previewAfterUrl = null;
+
+  function revokePreviewUrls() {
+    if (previewBeforeUrl) {
+      URL.revokeObjectURL(previewBeforeUrl);
+      previewBeforeUrl = null;
+    }
+    if (previewAfterUrl) {
+      URL.revokeObjectURL(previewAfterUrl);
+      previewAfterUrl = null;
+    }
+  }
+
+  function bytesToObjectUrl(bytes, mime) {
+    if (!bytes) return null;
+    try {
+      const buf = bytes instanceof ArrayBuffer ? bytes : null;
+      if (!buf) return null;
+      const blob = new Blob([buf], { type: mime || "application/octet-stream" });
+      return URL.createObjectURL(blob);
+    } catch (_) {
+      return null;
+    }
+  }
+
   function showPreview(payload) {
     const root = ensureHost();
     let panel = root.getElementById("sc-preview");
@@ -462,21 +490,23 @@
           background: rgba(12, 31, 46, 0.48);
           font: 14px/1.45 Outfit, "Trebuchet MS", "Segoe UI", sans-serif;
           pointer-events: auto;
+          padding: 16px;
         }
         #sc-preview .card {
           background: linear-gradient(180deg, #ffffff 0%, #f3faf8 100%);
-          color: #0c1f2e; width: min(420px, calc(100vw - 32px));
-          border-radius: 14px; padding: 20px 22px;
+          color: #0c1f2e; width: min(460px, calc(100vw - 32px));
+          max-height: calc(100vh - 32px); overflow: auto;
+          border-radius: 14px; padding: 18px 20px 16px;
           box-shadow: 0 22px 55px rgba(12,31,46,.3);
           border: 1px solid rgba(20, 107, 99, 0.12);
         }
         #sc-preview .brand {
-          display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+          display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
         }
         #sc-preview .brand img { width: 28px; height: 28px; border-radius: 7px; }
         #sc-preview h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.02em; }
-        #sc-preview p { margin: 0 0 10px; color: #3d5566; }
-        #sc-preview .meta { font-size: 12px; color: #6b8496; margin-bottom: 16px; }
+        #sc-preview .body { margin: 0 0 8px; color: #3d5566; font-size: 13px; }
+        #sc-preview .mount { margin: 8px 0 12px; }
         #sc-preview .row { display: flex; gap: 8px; justify-content: flex-end; }
         #sc-preview button {
           border: 0; border-radius: 9px; padding: 8px 14px; font: inherit; cursor: pointer;
@@ -484,6 +514,62 @@
         #sc-preview .ghost { background: #e2ece9; color: #0c1f2e; }
         #sc-preview .primary { background: #146B63; color: #fff; }
         #sc-preview.hidden { display: none; }
+        #sc-preview .sc-compare { display: flex; flex-direction: column; gap: 8px; }
+        #sc-preview .sc-compare-title { font-size: 13px; font-weight: 650; color: #0c1f2e; }
+        #sc-preview .sc-compare-meta {
+          display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 11.5px; color: #6b8496;
+          font-variant-numeric: tabular-nums;
+        }
+        #sc-preview .sc-compare-meta strong { color: #0c1f2e; font-weight: 600; }
+        #sc-preview .sc-compare-delta { font-weight: 650; color: #1f7a45; }
+        #sc-preview .sc-compare-frame {
+          position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 240px;
+          overflow: hidden; border-radius: 10px; border: 1px solid rgba(12,31,46,.1);
+          background: rgba(12,31,46,.04); touch-action: none; user-select: none;
+        }
+        #sc-preview .sc-compare-img {
+          display: block; width: 100%; height: 100%; object-fit: contain; background: #fff; pointer-events: none;
+        }
+        #sc-preview .sc-compare-after { position: absolute; inset: 0; }
+        #sc-preview .sc-compare-before-wrap {
+          position: absolute; inset: 0 auto 0 0; overflow: hidden;
+          border-right: 2px solid #fff; box-shadow: 2px 0 0 rgba(12,31,46,.12);
+        }
+        #sc-preview .sc-compare-before {
+          position: absolute; inset: 0 auto 0 0; max-width: none; height: 100%;
+        }
+        #sc-preview .sc-compare-handle {
+          position: absolute; top: 0; bottom: 0; width: 28px; margin-left: -14px;
+          display: flex; align-items: center; justify-content: center; cursor: ew-resize; z-index: 2;
+        }
+        #sc-preview .sc-compare-handle-bar {
+          position: absolute; top: 0; bottom: 0; width: 2px; background: #fff;
+          box-shadow: 0 0 0 1px rgba(12,31,46,.18);
+        }
+        #sc-preview .sc-compare-handle-knob {
+          width: 22px; height: 22px; border-radius: 50%; background: #146B63;
+          border: 2px solid #fff; box-shadow: 0 2px 8px rgba(12,31,46,.28); position: relative; z-index: 1;
+        }
+        #sc-preview .sc-compare-range {
+          position: absolute; left: 0; right: 0; bottom: 6px; width: calc(100% - 16px);
+          margin: 0 8px; z-index: 3; accent-color: #146B63;
+        }
+        #sc-preview .sc-compare-labels {
+          position: absolute; top: 8px; left: 8px; right: 8px; display: flex;
+          justify-content: space-between; pointer-events: none; z-index: 2;
+        }
+        #sc-preview .sc-compare-labels span {
+          font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+          color: #fff; background: rgba(12,31,46,.55); padding: 3px 7px; border-radius: 6px;
+        }
+        #sc-preview .sc-compare-single {
+          border-radius: 10px; overflow: hidden; border: 1px solid rgba(12,31,46,.1);
+          background: #fff; max-height: 200px;
+        }
+        #sc-preview .sc-compare-single img {
+          display: block; width: 100%; max-height: 200px; object-fit: contain;
+        }
+        #sc-preview .sc-compare-hint { margin: 0; font-size: 11.5px; line-height: 1.4; color: #6b8496; }
       `;
       root.appendChild(style);
       panel = document.createElement("div");
@@ -493,29 +579,92 @@
         <div class="card" role="dialog" aria-modal="true" aria-labelledby="sc-title">
           <div class="brand">
             <img alt="" width="28" height="28" />
-            <h2 id="sc-title">Confirm conversion</h2>
+            <h2 id="sc-title">Confirm before upload</h2>
           </div>
-          <p id="sc-body"></p>
-          <div class="meta" id="sc-meta"></div>
+          <p class="body" id="sc-body"></p>
+          <div class="mount" id="sc-mount"></div>
           <div class="row">
             <button type="button" class="ghost" id="sc-decline">Keep original</button>
-            <button type="button" class="primary" id="sc-accept">Upload converted</button>
+            <button type="button" class="primary" id="sc-accept">Upload new file</button>
           </div>
         </div>`;
       panel.querySelector("img").src = chrome.runtime.getURL("icons/icon48.png");
       root.appendChild(panel);
     }
 
+    revokePreviewUrls();
+    const Compare = globalThis.SwiftConvertCompare;
+    const mount = panel.querySelector("#sc-mount");
+    if (Compare && mount) Compare.destroy(mount);
+
+    const beforeType = payload.originalType || "";
+    const afterType = payload.convertedType || "";
+    const canBefore =
+      payload.originalBytes &&
+      beforeType.startsWith("image/") &&
+      beforeType !== "image/heic" &&
+      beforeType !== "image/heif";
+    const canAfter = payload.convertedBytes && afterType.startsWith("image/");
+    previewBeforeUrl = canBefore
+      ? bytesToObjectUrl(payload.originalBytes, beforeType)
+      : null;
+    previewAfterUrl = canAfter
+      ? bytesToObjectUrl(payload.convertedBytes, afterType)
+      : null;
+
     panel.dataset.id = String(payload.id);
+    const action =
+      payload.didConvert && payload.didCompress
+        ? "converted & compressed"
+        : payload.didCompress
+          ? "compressed"
+          : "converted";
     panel.querySelector("#sc-body").textContent =
-      `${payload.originalName} → ${payload.convertedName}`;
-    panel.querySelector("#sc-meta").textContent =
-      `${payload.originalType || "unknown"} → ${payload.convertedType}` +
-      ` · ${(payload.originalSize / 1024).toFixed(1)} KB → ${(payload.convertedSize / 1024).toFixed(1)} KB`;
+      `${payload.originalName} → ${payload.convertedName} (${action})`;
+    panel.querySelector("#sc-accept").textContent = payload.didCompress
+      ? "Upload new file"
+      : "Upload converted";
+
+    let note = "";
+    if (!previewBeforeUrl && !previewAfterUrl) {
+      note =
+        "No visual wipe for this type (e.g. PDF/DOCX text). Check sizes and formats, then Accept or Keep original.";
+    } else if (!previewBeforeUrl) {
+      note = "Original is not browser-viewable here; showing the result when possible.";
+    }
+
+    if (Compare && mount) {
+      Compare.mount(mount, {
+        title: "Before / after",
+        beforeUrl: previewBeforeUrl,
+        afterUrl: previewAfterUrl,
+        beforeType,
+        afterType,
+        beforeSize: payload.originalSize,
+        afterSize: payload.convertedSize,
+        beforeName: payload.originalName,
+        afterName: payload.convertedName,
+        note: note || undefined
+      });
+    } else if (mount) {
+      mount.textContent =
+        `${beforeType || "unknown"} → ${afterType}` +
+        ` · ${(payload.originalSize / 1024).toFixed(1)} KB → ${(payload.convertedSize / 1024).toFixed(1)} KB`;
+    }
+
     panel.classList.remove("hidden");
+
+    const onKey = (e) => {
+      if (e.key === "Escape" && !panel.classList.contains("hidden")) {
+        finish(false);
+      }
+    };
 
     const finish = (accepted) => {
       panel.classList.add("hidden");
+      document.removeEventListener("keydown", onKey, true);
+      revokePreviewUrls();
+      if (Compare && mount) Compare.destroy(mount);
       window.postMessage(
         {
           source: CHANNEL,
@@ -529,6 +678,10 @@
 
     panel.querySelector("#sc-accept").onclick = () => finish(true);
     panel.querySelector("#sc-decline").onclick = () => finish(false);
+    panel.onclick = (e) => {
+      if (e.target === panel) finish(false);
+    };
+    document.addEventListener("keydown", onKey, true);
   }
 
   loadSettings().then(() => {

@@ -33,9 +33,13 @@ Firefox (MV3): open `about:debugging` → This Firefox → Load Temporary Add-on
 
 Converter self-test (no extension required for the convert host libs): [http://127.0.0.1:8765/demo/self-test.html](http://127.0.0.1:8765/demo/self-test.html) should show `ALL PASS`.
 
-### Manual converter & compressor
+### Manual tools
 
-Toolbar popup includes **Convert** and **Compress** tabs: pick or drop a file, then **Download** or **Drag out**. Use **Open tools panel** for reliable drag onto a webpage.
+Toolbar popup and **Open tools panel** share one flow: pick or drop a file, check **Convert** and/or **Compress**, then **Run**. When both are enabled, convert runs first, then compress. After processing, a before/after wipe slider lets you **Accept** (enable download / drag-out) or **Cancel** (re-tweak). Use the tools panel for reliable drag onto a webpage.
+
+### Preview before upload
+
+When **Preview before upload** is on, automatic convert/compress shows the same before/after visualizer on the page. **Upload new file** continues with the processed file; **Keep original**, backdrop click, Escape, or a 60s timeout keeps the original and does not upload the change.
 
 ## Conversion matrix
 
@@ -65,7 +69,7 @@ By default SwiftConvert does **not** compress unless a limit is detected (detect
 ## Options
 
 - **Enable SwiftConvert** — master switch
-- **Preview before upload** — confirm each conversion (recommended for PDF/DOCX)
+- **Preview before upload** — before/after slider; Accept uploads the new file, Cancel keeps the original (also covers auto-compress)
 - **Quiet conversion toast** — brief on-page notice (**default: on**)
 - **Auto-compress** — shrink oversized images when a limit is found (**default: on**)
 - **Use default max when no limit found** — optional fallback (**default: off**, detect-first)
