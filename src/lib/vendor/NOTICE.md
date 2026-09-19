@@ -5,7 +5,7 @@ SwiftConvert vendors the following client-side libraries for conversion and bran
 ## heic2any
 
 - Package: `heic2any` (Alex Corvi)
-- File: `heic2any.min.js`
+- Files: `heic2any.min.js`, `heic2any.worker.js` (worker script extracted for Chrome MV3; blob workers are not allowed in `extension_pages` CSP)
 - License: MIT
 - https://github.com/alexcorvi/heic2any
 

@@ -28,7 +28,7 @@
     "128": "icons/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self' blob:;"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';"
   },
   "content_scripts": [
     {
@@ -69,6 +69,7 @@
         "src/lib/converters/pdf.js",
         "src/lib/converters/docx.js",
         "src/lib/vendor/heic2any.min.js",
+        "src/lib/vendor/heic2any.worker.js",
         "src/lib/vendor/mammoth.browser.min.js",
         "src/lib/vendor/pdf.min.mjs",
         "src/lib/vendor/pdf.worker.min.mjs",

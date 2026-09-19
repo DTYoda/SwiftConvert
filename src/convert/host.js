@@ -6,10 +6,10 @@ import * as pdfjs from "../lib/vendor/pdf.min.mjs";
 
 const CHANNEL = "swiftconvert-host";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "../lib/vendor/pdf.worker.min.mjs",
-  import.meta.url
-).href;
+pdfjs.GlobalWorkerOptions.workerSrc =
+  typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getURL
+    ? chrome.runtime.getURL("src/lib/vendor/pdf.worker.min.mjs")
+    : new URL("../lib/vendor/pdf.worker.min.mjs", import.meta.url).href;
 
 globalThis.pdfjsLib = pdfjs;
 

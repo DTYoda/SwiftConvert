@@ -46,7 +46,7 @@ Toolbar popup includes a **Manual converter**: pick or drop an image / HEIC / PD
 | DOCX | plain text, HTML, text PDF | `mammoth` + text PDF writer |
 | Images | PDF (single page) | Minimal JPEG-in-PDF writer |
 
-Complex converts (HEIC / PDF→image / DOCX) run in a hidden extension-page iframe so WASM/workers stay under the extension CSP, not the host page CSP.
+Complex converts (HEIC / PDF→image / DOCX) run in a hidden extension-page iframe so WASM/workers stay under the extension CSP, not the host page CSP. PDF.js and heic2any workers are packaged files (`pdf.worker.min.mjs`, `heic2any.worker.js`) — Chrome MV3 forbids `blob:` in `worker-src` for extension pages.
 
 ## Options
 
