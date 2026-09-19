@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Seamlessly convert mismatched file uploads to the format a site expects.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
@@ -29,10 +29,25 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://*/*", "https://*/*", "file://*/*"],
+      "js": [
+        "src/lib/mime.js",
+        "src/lib/converters/image.js",
+        "src/lib/converters/stubs.js",
+        "src/lib/converters/registry.js",
+        "src/content/page-hook.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*", "file://*/*"],
       "js": ["src/content/bridge.js"],
       "run_at": "document_start",
-      "all_frames": true
+      "all_frames": true,
+      "match_about_blank": true
     }
   ],
   "web_accessible_resources": [
@@ -50,7 +65,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "swiftconvert@local.dev",
-      "strict_min_version": "109.0"
+      "strict_min_version": "128.0"
     }
   }
 }

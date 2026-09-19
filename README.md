@@ -23,12 +23,16 @@ Firefox (MV3): open `about:debugging` → This Firefox → Load Temporary Add-on
 
 2. Open [http://127.0.0.1:8765/demo/](http://127.0.0.1:8765/demo/).
 3. Ensure SwiftConvert is **enabled** (toolbar popup).
-4. On **Native file input**, choose `demo/sample.jpg`.
+4. On **Native file input**, choose `demo/sample.jpg` (JPG must appear in the OS picker — SwiftConvert clears `accept` before the dialog opens, then converts).
 5. The result panel should show `image/png` and a `.png` filename — the page only accepts PNG.
 
 Converter-only smoke test (no extension): [http://127.0.0.1:8765/demo/self-test.html](http://127.0.0.1:8765/demo/self-test.html) should show `PASS`.
 
-Also try the drag-and-drop zone and the FormData/fetch section on the same page.
+Also try drag-and-drop, FormData/fetch, **label-triggered**, and **dynamically created** inputs on the same page.
+
+### After updating the extension
+
+Open `chrome://extensions` → find SwiftConvert → **Reload**, then hard-refresh the demo tab.
 
 ### Preview mode
 
@@ -38,11 +42,15 @@ Open the extension popup → enable **Preview first** (or full Options). The nex
 
 | Path | Status |
 |------|--------|
-| `<input type="file">` | Supported |
+| `<input type="file">` (picker + change) | Supported — `accept` neutralized before dialog |
+| Label / `input.click()` / `showPicker()` | Supported |
+| Dynamically created inputs | Supported (prototype + capture hooks) |
 | Drag & drop (with `accept` / `data-accept`) | Supported |
 | `FormData` + `fetch` / XHR | Best-effort (files already converted on inputs pass through; fetch/XHR can await in-flight converts) |
 | Images → PNG / JPEG / WebP | Supported (canvas) |
 | DOCX / PDF | Stubbed in the converter registry — not implemented yet |
+
+Page hooks run in the **MAIN** world at `document_start` (CSP-safe). A DOM script-tag inject remains only as a fallback.
 
 ## Project layout
 

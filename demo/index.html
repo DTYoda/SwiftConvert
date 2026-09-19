@@ -137,6 +137,29 @@
         <button id="fetchBtn" type="button" disabled>Simulate fetch upload</button>
         <div class="result" id="fetchResult">No upload yet.</div>
       </section>
+
+      <section>
+        <span class="accept">label → hidden input</span>
+        <h2>Label-triggered picker</h2>
+        <p class="hint">
+          Common UI pattern: a styled label opens a visually hidden PNG-only input.
+          Click the button below and select <code>sample.jpg</code>.
+        </p>
+        <input id="labelInput" type="file" accept="image/png,.png" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" />
+        <label for="labelInput"><button type="button" id="labelBtn">Upload via label</button></label>
+        <div class="result" id="labelResult">No file yet.</div>
+      </section>
+
+      <section>
+        <span class="accept">dynamically created input</span>
+        <h2>Late-created file input</h2>
+        <p class="hint">
+          Mimics SPAs that insert <code>&lt;input type="file"&gt;</code> after load, then call
+          <code>input.click()</code>. Hooks must work without rebinding per element.
+        </p>
+        <button type="button" id="dynBtn">Create input &amp; open picker</button>
+        <div class="result" id="dynResult">No file yet.</div>
+      </section>
     </main>
 
     <script>
@@ -209,6 +232,33 @@
         } catch (_) {
           /* ignore */
         }
+      });
+
+      const labelInput = document.getElementById("labelInput");
+      const labelResult = document.getElementById("labelResult");
+      const labelBtn = document.getElementById("labelBtn");
+      // Nested button inside label: prevent double-toggle; still open via label association.
+      labelBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        labelInput.click();
+      });
+      labelInput.addEventListener("change", () => {
+        show(labelResult, labelInput.files && labelInput.files[0]);
+      });
+
+      const dynBtn = document.getElementById("dynBtn");
+      const dynResult = document.getElementById("dynResult");
+      dynBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/png,.png";
+        input.style.display = "none";
+        document.body.appendChild(input);
+        input.addEventListener("change", () => {
+          show(dynResult, input.files && input.files[0]);
+          input.remove();
+        });
+        input.click();
       });
     </script>
   </body>

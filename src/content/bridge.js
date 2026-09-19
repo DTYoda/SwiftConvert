@@ -1,6 +1,10 @@
 /**
- * Content-script bridge: injects page-world scripts, syncs settings,
- * and hosts the optional preview overlay (isolated world / shadow DOM).
+ * Content-script bridge (isolated world): syncs settings with the page-world hook
+ * and hosts the optional preview overlay (shadow DOM).
+ *
+ * Page-world scripts are primarily injected via manifest `world: "MAIN"`.
+ * DOM `<script src=chrome-extension://…>` injection is only a fallback when the
+ * MAIN-world marker is missing (older engines / CSP edge cases).
  */
 (function () {
   if (window.__SWIFTCONVERT_BRIDGE__) return;
@@ -18,6 +22,7 @@
   let host = null;
   let shadow = null;
   let quietTimer = null;
+  let injectAttempted = false;
 
   const PAGE_SCRIPTS = [
     "src/lib/mime.js",
@@ -27,8 +32,18 @@
     "src/content/page-hook.js"
   ];
 
-  function injectScripts() {
-    // Inject sequentially to preserve dependency order
+  function isPageHooked() {
+    try {
+      return document.documentElement.getAttribute("data-swiftconvert-hooked") === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function injectScriptsFallback() {
+    if (injectAttempted || isPageHooked()) return;
+    injectAttempted = true;
+    // Sequential injection preserves converter dependency order.
     let chain = Promise.resolve();
     for (const path of PAGE_SCRIPTS) {
       chain = chain.then(
@@ -46,7 +61,7 @@
           })
       );
     }
-    return chain.catch((err) => console.warn("[SwiftConvert]", err));
+    return chain.catch((err) => console.warn("[SwiftConvert] fallback inject:", err));
   }
 
   function sendSettingsToPage() {
@@ -98,7 +113,6 @@
         showQuietToast(data.payload);
         break;
       case "converted":
-        // Optional: could badge the extension icon via runtime message
         chrome.runtime.sendMessage({ type: "converted", payload: data.payload }).catch(() => {});
         break;
       case "error":
@@ -224,7 +238,17 @@
     panel.querySelector("#sc-decline").onclick = () => finish(false);
   }
 
-  // Boot
-  injectScripts();
+  // Boot: MAIN-world content scripts should already be present. Retry fallback briefly.
   loadSettings().then(sendSettingsToPage);
+  const scheduleFallback = () => {
+    if (isPageHooked()) {
+      sendSettingsToPage();
+      return;
+    }
+    injectScriptsFallback();
+  };
+  scheduleFallback();
+  setTimeout(scheduleFallback, 0);
+  setTimeout(scheduleFallback, 100);
+  setTimeout(scheduleFallback, 500);
 })();

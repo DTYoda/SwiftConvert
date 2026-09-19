@@ -24,6 +24,11 @@
   const pendingPreview = new Map();
   let previewSeq = 0;
 
+  /** @type {WeakMap<HTMLInputElement, string>} original accept before we neutralize */
+  const savedAccept = new WeakMap();
+  /** Inputs whose accept is currently neutralized for an open/pending picker */
+  const acceptNeutralized = new WeakSet();
+
   function postToBridge(type, payload) {
     window.postMessage({ source: CHANNEL, direction: "page-to-bridge", type, payload }, "*");
   }
@@ -49,12 +54,30 @@
   // Ask bridge for current settings
   postToBridge("ready", {});
 
+  function markHooked() {
+    try {
+      document.documentElement.setAttribute("data-swiftconvert-hooked", "1");
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  markHooked();
+
   function acceptFromContext(ctx) {
     if (!ctx) return "";
     if (typeof ctx === "string") return ctx;
+    if (ctx.input instanceof HTMLInputElement && savedAccept.has(ctx.input)) {
+      return savedAccept.get(ctx.input);
+    }
     if (ctx.accept) return ctx.accept;
     if (ctx.input && ctx.input.accept) return ctx.input.accept;
     return "";
+  }
+
+  function effectiveAccept(input) {
+    if (!(input instanceof HTMLInputElement)) return "";
+    if (savedAccept.has(input)) return savedAccept.get(input);
+    return input.accept || "";
   }
 
   async function maybeConvertFile(file, ctx) {
@@ -138,6 +161,153 @@
     return dt.files;
   }
 
+  // ─── Accept neutralization (must run BEFORE the native picker opens) ───────
+  // Converting after selection cannot help if accept=".png" hides JPG in the OS dialog.
+
+  function shouldSkipAcceptNeutralize(input) {
+    if (!(input instanceof HTMLInputElement) || input.type !== "file") return true;
+    if (!settings.enabled) return true;
+    // Directory pickers and capture (camera/mic) must keep their constraints.
+    if (input.webkitdirectory || input.hasAttribute("webkitdirectory")) return true;
+    if (input.hasAttribute("capture")) return true;
+    return false;
+  }
+
+  function prepareAcceptForPicker(input) {
+    if (shouldSkipAcceptNeutralize(input)) return;
+    const currentAttr = input.getAttribute("accept");
+    const currentProp = input.accept;
+    const current = currentAttr != null ? currentAttr : currentProp || "";
+    if (!current) return; // already unrestricted
+
+    if (!savedAccept.has(input)) {
+      savedAccept.set(input, current);
+    }
+
+    // Neutralize so the OS dialog lists convertible types (e.g. JPG when site wants PNG).
+    try {
+      input.removeAttribute("accept");
+      if (input.accept) input.accept = "";
+    } catch (_) {
+      try {
+        input.accept = "";
+      } catch (__) {
+        /* ignore */
+      }
+    }
+    acceptNeutralized.add(input);
+  }
+
+  function restoreAcceptAfterPicker(input) {
+    if (!(input instanceof HTMLInputElement)) return;
+    if (!savedAccept.has(input)) return;
+    if (!acceptNeutralized.has(input)) return;
+    const original = savedAccept.get(input);
+    try {
+      if (original) {
+        input.setAttribute("accept", original);
+        input.accept = original;
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    acceptNeutralized.delete(input);
+  }
+
+  function resolveFileInputFromEvent(event) {
+    const path =
+      typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+    for (const node of path) {
+      if (node instanceof HTMLInputElement && node.type === "file") {
+        return node;
+      }
+      if (node instanceof HTMLLabelElement) {
+        const control = node.control;
+        if (control instanceof HTMLInputElement && control.type === "file") {
+          return control;
+        }
+        if (node.htmlFor) {
+          const byId = document.getElementById(node.htmlFor);
+          if (byId instanceof HTMLInputElement && byId.type === "file") return byId;
+        }
+      }
+    }
+    // Label wrapping / for= outside composedPath edge cases
+    const t = event.target;
+    if (t && t.closest) {
+      const label = t.closest("label");
+      if (label) {
+        const control = label.control;
+        if (control instanceof HTMLInputElement && control.type === "file") return control;
+      }
+    }
+    return null;
+  }
+
+  function onPickerGesture(event) {
+    const input = resolveFileInputFromEvent(event);
+    if (input) prepareAcceptForPicker(input);
+  }
+
+  // Capture: save + clear early. Bubble on window: clear again after page handlers
+  // that may have restored accept, and before the browser's default file dialog.
+  document.addEventListener("click", onPickerGesture, true);
+  document.addEventListener("pointerdown", onPickerGesture, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    onPickerGesture(event);
+  }, true);
+  window.addEventListener("click", onPickerGesture, false);
+  window.addEventListener("pointerdown", onPickerGesture, false);
+
+  // Restore accept when the picker closes (change, cancel, or focus return).
+  function onPickerClosed(event) {
+    const t = event.target;
+    if (t instanceof HTMLInputElement && t.type === "file") {
+      restoreAcceptAfterPicker(t);
+    }
+  }
+  document.addEventListener("change", onPickerClosed, true);
+  document.addEventListener("cancel", onPickerClosed, true);
+  window.addEventListener("focus", () => {
+    // After native dialog dismisses, restore any neutralized inputs.
+    document.querySelectorAll('input[type="file"]').forEach((el) => {
+      if (acceptNeutralized.has(el)) restoreAcceptAfterPicker(el);
+    });
+  });
+
+  // Patch click / showPicker so programmatic openers also neutralize accept.
+  const nativeInputClick = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function patchedClick() {
+    if (this.type === "file") prepareAcceptForPicker(this);
+    return nativeInputClick.apply(this, arguments);
+  };
+
+  if (typeof HTMLInputElement.prototype.showPicker === "function") {
+    const nativeShowPicker = HTMLInputElement.prototype.showPicker;
+    HTMLInputElement.prototype.showPicker = function patchedShowPicker() {
+      if (this.type === "file") prepareAcceptForPicker(this);
+      return nativeShowPicker.apply(this, arguments);
+    };
+  }
+
+  // If a framework sets accept= immediately before opening, keep our saved original.
+  const nativeSetAttribute = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function patchedSetAttribute(name, value) {
+    if (
+      this instanceof HTMLInputElement &&
+      this.type === "file" &&
+      String(name).toLowerCase() === "accept" &&
+      acceptNeutralized.has(this)
+    ) {
+      // Remember the site's intended accept for conversion, but stay neutralized
+      // until the picker finishes so the OS dialog does not re-filter.
+      savedAccept.set(this, value == null ? "" : String(value));
+      return undefined;
+    }
+    return nativeSetAttribute.apply(this, arguments);
+  };
+
   // ─── Patch HTMLInputElement.files ─────────────────────────────────────────
   const inputProto = HTMLInputElement.prototype;
   const desc = Object.getOwnPropertyDescriptor(inputProto, "files");
@@ -173,7 +343,8 @@
     );
     if (!files.length) return false;
 
-    const converted = await convertFileList(files, { input, accept: input.accept });
+    const accept = effectiveAccept(input);
+    const converted = await convertFileList(files, { input, accept });
     const changed = converted.some((f, i) => f !== files[i]);
     if (!changed) return false;
     assignFiles(input, converted);
@@ -197,10 +368,14 @@
     if (!settings.enabled) return;
 
     const snapshot = nativeFilesGetter ? nativeFilesGetter.call(t) : t.files;
-    if (!filesNeedConversion(snapshot, t.accept)) return;
+    const accept = effectiveAccept(t);
+    if (!filesNeedConversion(snapshot, accept)) return;
 
     event.stopImmediatePropagation();
     event.stopPropagation();
+
+    // Ensure accept is restored for any page logic that reads it during change.
+    restoreAcceptAfterPicker(t);
 
     processInputFiles(t, snapshot).then((changed) => {
       const ev = new Event(event.type, { bubbles: true, cancelable: true });
@@ -228,7 +403,7 @@
       const path = typeof event.composedPath === "function" ? event.composedPath() : [];
       for (const node of path) {
         if (node instanceof HTMLInputElement && node.type === "file") {
-          accept = node.accept || "";
+          accept = effectiveAccept(node) || node.accept || "";
           break;
         }
         if (node && node.getAttribute) {
@@ -248,11 +423,6 @@
       if (targetIsFileInput) return;
 
       const originals = Array.from(dt.files);
-      // Only intercept when we can infer a target
-      const needsWork = originals.some((f) => Mime.inferTargetMime(f, accept, settings.preferredImageFormat));
-      if (!needsWork && accept) {
-        // still might need convert — infer returned null for match; skip
-      }
       const maybeNeeded = originals.some((f) => {
         const t = Mime.inferTargetMime(f, accept, settings.preferredImageFormat);
         return t && Registry.canHandle(f, t);
@@ -275,16 +445,20 @@
           clientY: event.clientY
         });
         Object.defineProperty(synthetic, "__swiftconvert", { value: true });
+        // DragEvent.dataTransfer is often read-only; force our FileList when needed.
+        try {
+          Object.defineProperty(synthetic, "dataTransfer", {
+            configurable: true,
+            get: () => newDt
+          });
+        } catch (_) {
+          /* some engines already accepted the constructor value */
+        }
         event.target.dispatchEvent(synthetic);
       });
     },
     true
   );
-
-  // Ignore our own synthetic drops in the handler above via flag check — already returned early
-  // if no conversion needed. Add guard:
-  const nativeAddEventListener = EventTarget.prototype.addEventListener;
-  // (We use the capture listener's preventDefault path only when converting.)
 
   // ─── FormData.append / set ────────────────────────────────────────────────
   const fdAppend = FormData.prototype.append;
@@ -298,21 +472,14 @@
       // FormData often lacks accept context — try last focused file input
       const active = document.activeElement;
       const accept =
-        active instanceof HTMLInputElement && active.type === "file" ? active.accept : "";
+        active instanceof HTMLInputElement && active.type === "file"
+          ? effectiveAccept(active)
+          : "";
       const target = Mime.inferTargetMime(value, accept, settings.preferredImageFormat);
       if (!target || !Registry.canHandle(value, target)) {
         return original.apply(this, arguments);
       }
 
-      // Synchronous FormData API cannot await — queue microtask rewrite is too late.
-      // Convert eagerly via blocking isn't possible; instead store promise side-channel.
-      // Practical approach: convert using a sync-infeasible path → use deasync-free
-      // "replace on next tick" is unreliable. Better: pre-convert known Files when they
-      // were already converted on the input. If still mismatched, kick off async convert
-      // and append a placeholder then... too invasive.
-      //
-      // For this slice: if the File was already converted (name/type match target), pass through.
-      // Otherwise attempt async conversion and expose via patched fetch/XHR that awaits pending.
       const pending = maybeConvertFile(value, { accept });
       trackPending(pending);
       // If already resolved synchronously (rare), use it — else append original and
@@ -392,6 +559,7 @@
           processInputFiles(this, fileList).then(() => {
             // After async convert, fire change so React/Vue see new files
             const ev = new Event("change", { bubbles: true });
+            Object.defineProperty(ev, "__swiftconvert", { value: true });
             silentAssign.add(this);
             this.dispatchEvent(ev);
             setTimeout(() => silentAssign.delete(this), 0);
@@ -401,6 +569,5 @@
     });
   }
 
-  // Observe dynamically added file inputs (no special logic needed — events bubble)
-  postToBridge("hooked", { version: "0.1.0" });
+  postToBridge("hooked", { version: "0.1.1" });
 })();
