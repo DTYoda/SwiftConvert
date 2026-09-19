@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "SwiftConvert",
+  "version": "0.1.0",
+  "description": "Seamlessly convert mismatched file uploads to the format a site expects.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "action": {
+    "default_title": "SwiftConvert",
+    "default_popup": "src/options/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/page-hook.js",
+        "src/lib/mime.js",
+        "src/lib/converters/registry.js",
+        "src/lib/converters/image.js",
+        "src/lib/converters/stubs.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "swiftconvert@local.dev",
+      "strict_min_version": "109.0"
+    }
+  }
+}
