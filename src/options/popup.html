@@ -54,15 +54,16 @@
         text-transform: uppercase;
         color: var(--muted);
       }
+      .tool-tabs { margin-top: 8px; }
     </style>
   </head>
   <body>
     <main class="wrap">
       <header class="brand compact">
-        <img src="../../icons/icon32.png" alt="SwiftConvert" width="28" height="28" />
+        <img src="../../icons/icon48.png" alt="SwiftConvert" width="28" height="28" />
         <div>
           <h1>SwiftConvert</h1>
-          <p class="tag">Match uploads to what sites expect</p>
+          <p class="tag">Match uploads · compress to fit</p>
         </div>
       </header>
 
@@ -87,9 +88,41 @@
         <label class="row">
           <span>
             <strong>Quiet toast</strong>
-            <small>Brief notice when a file converts</small>
+            <small>Brief notice when a file converts or compresses</small>
           </span>
           <input type="checkbox" id="showQuietBadge" />
+        </label>
+        <label class="row">
+          <span>
+            <strong>Auto-compress</strong>
+            <small>Shrink oversized images when a size limit is detected</small>
+          </span>
+          <input type="checkbox" id="autoCompress" />
+        </label>
+        <label class="row">
+          <span>
+            <strong>Use default max if none found</strong>
+            <small>Off = detect-first only. On = also apply default max below</small>
+          </span>
+          <input type="checkbox" id="useDefaultMaxWhenNoLimit" />
+        </label>
+        <label class="row stack">
+          <span>
+            <strong>Default max size (MB)</strong>
+            <small>Used only when “default max” is enabled</small>
+          </span>
+          <input type="number" id="defaultMaxSizeMB" min="0.1" max="50" step="0.1" />
+        </label>
+        <label class="row stack">
+          <span>
+            <strong>Compress quality</strong>
+            <small>Auto-compress preference</small>
+          </span>
+          <select id="compressQuality">
+            <option value="high">High</option>
+            <option value="balanced">Balanced</option>
+            <option value="small">Smaller file</option>
+          </select>
         </label>
         <label class="row stack">
           <span>
@@ -105,8 +138,13 @@
         </label>
       </section>
 
-      <p class="section-label">Manual converter</p>
-      <section class="panel converter-panel popup-converter" id="manualConverter">
+      <p class="section-label">Tools</p>
+      <div class="tool-tabs" role="tablist" aria-label="Tools">
+        <button type="button" class="tool-tab" role="tab" id="tabConvert" aria-selected="true" data-tool-tab="convert">Convert</button>
+        <button type="button" class="tool-tab" role="tab" id="tabCompress" aria-selected="false" data-tool-tab="compress">Compress</button>
+      </div>
+
+      <section class="panel converter-panel popup-converter tool-panel" id="manualConverter" role="tabpanel">
         <div class="cv-drop" data-cv-drop tabindex="0">
           <input type="file" data-cv-file accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
           <p class="cv-drop-label">Drop or click — image, HEIC, PDF, DOCX</p>
@@ -146,12 +184,70 @@
 
         <p class="cv-status" data-cv-status></p>
         <div class="cv-actions" style="margin-top: 8px; margin-bottom: 0;">
-          <button type="button" class="cv-btn" data-cv-open-panel>Open converter panel</button>
+          <button type="button" class="cv-btn" data-cv-open-panel>Open tools panel</button>
         </div>
         <p class="cv-note">
-          Drag-out from this popup is unreliable in Chrome (popup closes on blur).
-          Use <strong>Open converter panel</strong> for DownloadURL / File drag onto a page.
+          Drag-out from this popup is unreliable in Chrome. Use <strong>Open tools panel</strong>
+          for DownloadURL / File drag onto a page.
         </p>
+      </section>
+
+      <section class="panel converter-panel popup-converter tool-panel" id="manualCompressor" role="tabpanel" hidden>
+        <div class="cv-drop" data-cp-drop tabindex="0">
+          <input type="file" data-cp-file accept="image/*" hidden />
+          <p class="cv-drop-label">Drop or click — image to compress</p>
+          <p class="cv-name" data-cp-name>No file selected</p>
+        </div>
+        <div class="cv-preview" data-cp-preview></div>
+        <p class="cp-sizes" data-cp-sizes></p>
+
+        <label class="row stack cv-format">
+          <span><strong>Mode</strong></span>
+          <select data-cp-mode>
+            <option value="size">Fit target size</option>
+            <option value="quality">Quality + dimensions</option>
+          </select>
+        </label>
+
+        <div class="cp-grid">
+          <label data-cp-for="size">
+            <strong>Target KB</strong>
+            <input type="number" data-cp-target-kb min="8" max="10240" step="1" value="200" />
+          </label>
+          <label data-cp-for="quality">
+            <strong>Quality %</strong>
+            <input type="number" data-cp-quality min="10" max="100" step="1" value="80" />
+          </label>
+          <label data-cp-for="always">
+            <strong>Max W</strong>
+            <input type="number" data-cp-max-w min="0" max="10000" step="1" placeholder="—" />
+          </label>
+          <label data-cp-for="always">
+            <strong>Max H</strong>
+            <input type="number" data-cp-max-h min="0" max="10000" step="1" placeholder="—" />
+          </label>
+          <label data-cp-for="always" style="grid-column: 1 / -1">
+            <strong>Format</strong>
+            <select data-cp-format>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/webp">WebP</option>
+              <option value="image/png">PNG</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="cv-actions">
+          <button type="button" class="cv-btn primary" data-cp-run disabled>Compress</button>
+          <button type="button" class="cv-btn" data-cp-download disabled>Download</button>
+        </div>
+        <div class="cv-drag" data-cp-drag draggable="false" aria-disabled="true">
+          <strong>Drag out</strong>
+          <span>Use open panel for reliable drag</span>
+        </div>
+        <p class="cv-status" data-cp-status></p>
+        <div class="cv-actions" style="margin-top: 8px; margin-bottom: 0;">
+          <button type="button" class="cv-btn" data-cp-open-panel>Open tools panel</button>
+        </div>
       </section>
 
       <div class="links">
@@ -159,16 +255,18 @@
       </div>
       <p class="status" id="status" hidden>Saved</p>
     </main>
-    <script src="../lib/vendor/heic2any.min.js"></script>
+    <script src="../lib/vendor/libheif-bundle.js"></script>
     <script src="../lib/vendor/mammoth.browser.min.js"></script>
     <script src="../lib/mime.js"></script>
     <script src="../lib/converters/image.js"></script>
+    <script src="../lib/compress.js"></script>
     <script src="../lib/converters/pdf-write.js"></script>
     <script src="../lib/converters/heic.js"></script>
     <script src="../lib/converters/docx.js"></script>
     <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
+    <script src="tool-tabs.js"></script>
     <script type="module" src="boot-converters.js"></script>
     <script src="options.js"></script>
   </body>

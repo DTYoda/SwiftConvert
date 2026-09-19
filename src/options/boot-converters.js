@@ -19,3 +19,4 @@ function loadScript(src) {
 }
 
 await loadScript("./converter.js");
+await loadScript("./compressor.js");

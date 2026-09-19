@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.2.0",
-  "description": "Seamlessly convert mismatched file uploads to the format a site expects.",
+  "version": "0.3.3",
+  "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -14,7 +14,8 @@
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
-      "48": "icons/icon48.png"
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
   "options_ui": {
@@ -25,7 +26,8 @@
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "128": "icons/icon128.png",
+    "256": "icons/icon256.png"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';"
@@ -36,6 +38,8 @@
       "js": [
         "src/lib/mime.js",
         "src/lib/converters/image.js",
+        "src/lib/compress.js",
+        "src/lib/size-limit.js",
         "src/lib/converters/pdf-write.js",
         "src/lib/converters/stubs.js",
         "src/lib/converters/registry.js",
@@ -61,6 +65,8 @@
         "src/lib/mime.js",
         "src/lib/converters/registry.js",
         "src/lib/converters/image.js",
+        "src/lib/compress.js",
+        "src/lib/size-limit.js",
         "src/lib/converters/pdf-write.js",
         "src/lib/converters/stubs.js",
         "src/convert/host.html",
@@ -68,8 +74,7 @@
         "src/lib/converters/heic.js",
         "src/lib/converters/pdf.js",
         "src/lib/converters/docx.js",
-        "src/lib/vendor/heic2any.min.js",
-        "src/lib/vendor/heic2any.worker.js",
+        "src/lib/vendor/libheif-bundle.js",
         "src/lib/vendor/mammoth.browser.min.js",
         "src/lib/vendor/pdf.min.mjs",
         "src/lib/vendor/pdf.worker.min.mjs",
@@ -77,7 +82,9 @@
         "icons/icon32.png",
         "icons/icon48.png",
         "icons/icon128.png",
-        "icons/src/mark.svg"
+        "icons/icon256.png",
+        "icons/src/mark.svg",
+        "icons/src/logo.svg"
       ],
       "matches": ["<all_urls>"]
     }

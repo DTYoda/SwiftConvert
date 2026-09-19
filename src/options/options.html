@@ -10,7 +10,7 @@
     <main class="wrap">
       <header>
         <div class="brand">
-          <img src="../../icons/icon48.png" alt="SwiftConvert" width="40" height="40" />
+          <img src="../../icons/icon128.png" alt="SwiftConvert" width="40" height="40" />
           <div>
             <h1>SwiftConvert</h1>
             <p class="tag">Upload the file you have — we’ll match what the site wants.</p>
@@ -38,9 +38,51 @@
         <label class="row">
           <span>
             <strong>Quiet conversion toast</strong>
-            <small>Brief on-page notice when a file was converted (no preview). On by default.</small>
+            <small>Brief on-page notice when a file was converted or compressed (no preview). On by default.</small>
           </span>
           <input type="checkbox" id="showQuietBadge" />
+        </label>
+
+        <label class="row">
+          <span>
+            <strong>Auto-compress oversized images</strong>
+            <small>
+              When a page size limit is detected (attributes or nearby “max 2MB” copy),
+              shrink quality/dimensions so the upload fits. Runs after format conversion.
+            </small>
+          </span>
+          <input type="checkbox" id="autoCompress" />
+        </label>
+
+        <label class="row">
+          <span>
+            <strong>Use default max when no limit found</strong>
+            <small>
+              Detect-first is the default (off). Turn on to also compress when over the
+              default max size below, even if the page never stated a limit.
+            </small>
+          </span>
+          <input type="checkbox" id="useDefaultMaxWhenNoLimit" />
+        </label>
+
+        <label class="row stack">
+          <span>
+            <strong>Default max size (MB)</strong>
+            <small>Only applied when “use default max” is enabled.</small>
+          </span>
+          <input type="number" id="defaultMaxSizeMB" min="0.1" max="50" step="0.1" />
+        </label>
+
+        <label class="row stack">
+          <span>
+            <strong>Compress quality preference</strong>
+            <small>Controls how aggressively auto-compress steps quality before resizing.</small>
+          </span>
+          <select id="compressQuality">
+            <option value="high">High (keep quality longer)</option>
+            <option value="balanced">Balanced</option>
+            <option value="small">Smaller file</option>
+          </select>
         </label>
 
         <label class="row stack">
@@ -58,16 +100,19 @@
       </section>
 
       <section class="panel muted">
-        <h2>Converters</h2>
+        <h2>Converters &amp; compression</h2>
         <ul class="converters">
           <li><span class="ok">Ready</span> Images — JPEG, WebP, GIF, BMP ↔ PNG / JPEG / WebP / PDF</li>
           <li><span class="ok">Ready</span> HEIC / HEIF → JPEG / PNG / WebP</li>
           <li><span class="ok">Ready</span> PDF → PNG / JPEG / WebP (page 1)</li>
           <li><span class="ok">Ready</span> DOCX → plain text / HTML / text PDF</li>
+          <li><span class="ok">Ready</span> Image compress — quality / resize to fit size limits</li>
         </ul>
         <p style="margin: 0 0 12px; font-size: 13px; color: var(--muted);">
-          Need a one-off conversion with download / drag-out?
-          <a href="converter.html">Open the manual converter</a>.
+          Need a one-off conversion or compression with download / drag-out?
+          <a href="converter.html">Open tools</a>
+          ·
+          <a href="converter.html#compress">Open compressor</a>.
         </p>
       </section>
 

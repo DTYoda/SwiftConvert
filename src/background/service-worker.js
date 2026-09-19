@@ -5,10 +5,14 @@ const DEFAULTS = {
   enabled: true,
   previewBeforeUpload: false,
   preferredImageFormat: "auto",
-  showQuietBadge: true
+  showQuietBadge: true,
+  autoCompress: true,
+  useDefaultMaxWhenNoLimit: false,
+  defaultMaxSizeMB: 2,
+  compressQuality: "balanced"
 };
 
-const SETTINGS_SCHEMA_VERSION = 2;
+const SETTINGS_SCHEMA_VERSION = 3;
 
 chrome.runtime.onInstalled.addListener((details) => {
   chrome.storage.sync.get(null, (existing) => {
