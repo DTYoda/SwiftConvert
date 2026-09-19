@@ -13,134 +13,125 @@
         <img src="../../icons/icon48.png" alt="SwiftConvert" width="28" height="28" />
         <div>
           <h1>SwiftConvert tools</h1>
-          <p class="tag">Convert or compress, then download / drag out</p>
+          <p class="tag">Convert and/or compress, then download / drag out</p>
         </div>
       </header>
 
-      <div class="tool-tabs" role="tablist" aria-label="Tools">
-        <button type="button" class="tool-tab" role="tab" id="tabConvert" aria-selected="true" aria-controls="manualConverter" data-tool-tab="convert">Convert</button>
-        <button type="button" class="tool-tab" role="tab" id="tabCompress" aria-selected="false" aria-controls="manualCompressor" data-tool-tab="compress">Compress</button>
-      </div>
-
-      <section class="panel converter-panel tool-panel" id="manualConverter" role="tabpanel" aria-labelledby="tabConvert">
-        <div class="cv-drop" data-cv-drop tabindex="0">
+      <section class="panel converter-panel" id="manualTools">
+        <div class="cv-drop" data-tool-drop tabindex="0">
           <input
             type="file"
-            data-cv-file
+            data-tool-file
             accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             hidden
           />
           <p class="cv-drop-label">Drop an image, HEIC, PDF, or DOCX — or click to choose</p>
-          <p class="cv-name" data-cv-name>No file selected</p>
+          <p class="cv-name" data-tool-name>No file selected</p>
         </div>
 
-        <div class="cv-preview" data-cv-preview></div>
+        <div class="cv-preview" data-tool-source-preview></div>
 
-        <label class="row stack cv-format">
-          <span>
-            <strong>Target format</strong>
-            <small>Options update for the selected file</small>
-          </span>
-          <select data-cv-format>
-            <option value="image/png">PNG</option>
-            <option value="image/jpeg">JPEG</option>
-            <option value="image/webp">WebP</option>
-            <option value="application/pdf">PDF</option>
-          </select>
-        </label>
-
-        <div class="cv-actions">
-          <button type="button" class="cv-btn primary" data-cv-convert disabled>Convert</button>
-          <button type="button" class="cv-btn" data-cv-download disabled>Download</button>
+        <div class="tool-ops" role="group" aria-label="Operations">
+          <label class="tool-check">
+            <input type="checkbox" data-tool-do-convert checked />
+            <span>
+              <strong>Convert</strong>
+              <small>Change format</small>
+            </span>
+          </label>
+          <label class="tool-check">
+            <input type="checkbox" data-tool-do-compress />
+            <span>
+              <strong>Compress</strong>
+              <small>Shrink image size</small>
+            </span>
+          </label>
         </div>
 
-        <div
-          class="cv-drag"
-          data-cv-drag
-          draggable="false"
-          aria-disabled="true"
-          title="Drag the converted file onto a page upload zone"
-        >
-          <strong>Drag out</strong>
-          <span>Drag this handle onto a webpage upload field</span>
-        </div>
-
-        <p class="cv-status" data-cv-status></p>
-        <p class="cv-note">
-          Chrome closes the toolbar popup when you drag away from it, which cancels
-          the gesture. This panel stays open so drag-out can reach the page.
-          Host pages must accept the dropped file type (or have SwiftConvert enabled).
-        </p>
-      </section>
-
-      <section class="panel converter-panel tool-panel" id="manualCompressor" role="tabpanel" aria-labelledby="tabCompress" hidden>
-        <div class="cv-drop" data-cp-drop tabindex="0">
-          <input type="file" data-cp-file accept="image/*" hidden />
-          <p class="cv-drop-label">Drop an image — or click to choose</p>
-          <p class="cv-name" data-cp-name>No file selected</p>
-        </div>
-
-        <div class="cv-preview" data-cp-preview></div>
-        <p class="cp-sizes" data-cp-sizes></p>
-
-        <label class="row stack cv-format">
-          <span>
-            <strong>Mode</strong>
-            <small>Target file size, or fixed quality + optional max dimensions</small>
-          </span>
-          <select data-cp-mode>
-            <option value="size">Fit target size</option>
-            <option value="quality">Quality + dimensions</option>
-          </select>
-        </label>
-
-        <div class="cp-grid">
-          <label data-cp-for="size">
-            <strong>Target size (KB)</strong>
-            <input type="number" data-cp-target-kb min="8" max="10240" step="1" value="200" />
-          </label>
-          <label data-cp-for="quality">
-            <strong>Quality %</strong>
-            <input type="number" data-cp-quality min="10" max="100" step="1" value="80" />
-          </label>
-          <label data-cp-for="always">
-            <strong>Max width</strong>
-            <input type="number" data-cp-max-w min="0" max="10000" step="1" placeholder="none" />
-          </label>
-          <label data-cp-for="always">
-            <strong>Max height</strong>
-            <input type="number" data-cp-max-h min="0" max="10000" step="1" placeholder="none" />
-          </label>
-          <label data-cp-for="always" style="grid-column: 1 / -1">
-            <strong>Output format</strong>
-            <select data-cp-format>
+        <div class="tool-section" data-tool-convert-opts>
+          <label class="row stack cv-format">
+            <span>
+              <strong>Target format</strong>
+              <small>Options update for the selected file</small>
+            </span>
+            <select data-tool-format>
+              <option value="image/png">PNG</option>
               <option value="image/jpeg">JPEG</option>
               <option value="image/webp">WebP</option>
-              <option value="image/png">PNG</option>
+              <option value="application/pdf">PDF</option>
             </select>
           </label>
         </div>
 
+        <div class="tool-section" data-tool-compress-opts hidden>
+          <label class="row stack cv-format">
+            <span>
+              <strong>Compress mode</strong>
+              <small>Target file size, or fixed quality + optional max dimensions</small>
+            </span>
+            <select data-tool-cp-mode>
+              <option value="size">Fit target size</option>
+              <option value="quality">Quality + dimensions</option>
+            </select>
+          </label>
+
+          <div class="cp-grid">
+            <label data-cp-for="size">
+              <strong>Target size (KB)</strong>
+              <input type="number" data-tool-target-kb min="8" max="10240" step="1" value="200" />
+            </label>
+            <label data-cp-for="quality">
+              <strong>Quality %</strong>
+              <input type="number" data-tool-quality min="10" max="100" step="1" value="80" />
+            </label>
+            <label data-cp-for="always">
+              <strong>Max width</strong>
+              <input type="number" data-tool-max-w min="0" max="10000" step="1" placeholder="none" />
+            </label>
+            <label data-cp-for="always">
+              <strong>Max height</strong>
+              <input type="number" data-tool-max-h min="0" max="10000" step="1" placeholder="none" />
+            </label>
+            <label data-cp-for="always" style="grid-column: 1 / -1">
+              <strong>Output format</strong>
+              <select data-tool-cp-format>
+                <option value="image/jpeg">JPEG</option>
+                <option value="image/webp">WebP</option>
+                <option value="image/png">PNG</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
         <div class="cv-actions">
-          <button type="button" class="cv-btn primary" data-cp-run disabled>Compress</button>
-          <button type="button" class="cv-btn" data-cp-download disabled>Download</button>
+          <button type="button" class="cv-btn primary" data-tool-run disabled>Convert</button>
+          <button type="button" class="cv-btn" data-tool-download disabled>Download</button>
         </div>
 
         <div
           class="cv-drag"
-          data-cp-drag
+          data-tool-drag
           draggable="false"
           aria-disabled="true"
-          title="Drag the compressed file onto a page upload zone"
+          title="Drag the result onto a page upload zone"
         >
           <strong>Drag out</strong>
           <span>Drag this handle onto a webpage upload field</span>
         </div>
 
-        <p class="cv-status" data-cp-status></p>
+        <div class="tool-confirm" data-tool-confirm hidden>
+          <div data-tool-confirm-mount></div>
+          <div class="cv-actions tool-confirm-actions">
+            <button type="button" class="cv-btn" data-tool-cancel>Cancel</button>
+            <button type="button" class="cv-btn primary" data-tool-accept>Accept</button>
+          </div>
+          <p class="cv-note">Accept enables download and drag-out. Cancel discards the result so you can re-tweak.</p>
+        </div>
+
+        <p class="cv-status" data-tool-status></p>
         <p class="cv-note">
-          Auto-compress on upload uses the same engine when a site size limit is detected.
-          Configure defaults under Settings.
+          Enable either or both operations. When both are on, SwiftConvert converts first, then compresses.
+          Chrome closes the toolbar popup when you drag away — this panel stays open for drag-out.
         </p>
       </section>
     </main>
@@ -156,7 +147,7 @@
     <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
-    <script src="tool-tabs.js"></script>
+    <script src="../lib/compare-slider.js"></script>
     <script type="module" src="boot-converters.js"></script>
   </body>
 </html>

@@ -18,5 +18,4 @@ function loadScript(src) {
   });
 }
 
-await loadScript("./converter.js");
-await loadScript("./compressor.js");
+await loadScript("./tools.js");

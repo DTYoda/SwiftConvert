@@ -198,9 +198,12 @@
 
     if (!didConvert && !didCompress) return file;
 
-    if (settings.previewBeforeUpload && didConvert) {
-      const ok = await requestPreview(file, working, target || Mime.mimeFromFile(working));
-      if (!ok) return file;
+    if (settings.previewBeforeUpload && (didConvert || didCompress)) {
+      const ok = await requestPreview(file, working, target || Mime.mimeFromFile(working), {
+        didConvert,
+        didCompress
+      });
+      if (!ok) return file; // Cancel / dismiss / timeout → keep original
     } else if (settings.showQuietBadge) {
       if (didConvert && didCompress) {
         postToBridge("converted-quiet", {
@@ -261,26 +264,53 @@
     });
   }
 
-  function requestPreview(original, converted, target) {
+  function isPreviewableImage(mime) {
+    return (
+      Boolean(mime) &&
+      mime.startsWith("image/") &&
+      mime !== "image/heic" &&
+      mime !== "image/heif"
+    );
+  }
+
+  async function requestPreview(original, converted, target, flags) {
     const id = ++previewSeq;
+    const originalType = Mime.mimeFromFile(original);
+    const convertedType = target || Mime.mimeFromFile(converted);
+    const payload = {
+      id,
+      originalName: original.name,
+      originalType,
+      convertedName: converted.name,
+      convertedType,
+      originalSize: original.size,
+      convertedSize: converted.size,
+      didConvert: Boolean(flags && flags.didConvert),
+      didCompress: Boolean(flags && flags.didCompress)
+    };
+
+    // Transfer image bytes for the wipe slider (skip huge non-images / HEIC).
+    try {
+      if (isPreviewableImage(originalType) && original.size < 12 * 1024 * 1024) {
+        payload.originalBytes = await original.arrayBuffer();
+      }
+      if (isPreviewableImage(convertedType) && converted.size < 12 * 1024 * 1024) {
+        payload.convertedBytes = await converted.arrayBuffer();
+      }
+    } catch (_) {
+      /* meta-only preview still works */
+    }
+
     return new Promise((resolve) => {
       pendingPreview.set(id, { resolve });
-      // Timeout: auto-accept after 60s so uploads aren't stuck forever
+      // Timeout: keep original (safer than uploading unreviewed changes)
       setTimeout(() => {
         if (pendingPreview.has(id)) {
           pendingPreview.delete(id);
-          resolve(true);
+          resolve(false);
         }
       }, 60000);
-      postToBridge("preview", {
-        id,
-        originalName: original.name,
-        originalType: Mime.mimeFromFile(original),
-        convertedName: converted.name,
-        convertedType: target,
-        originalSize: original.size,
-        convertedSize: converted.size
-      });
+      postToBridge("preview", payload);
     });
   }
 

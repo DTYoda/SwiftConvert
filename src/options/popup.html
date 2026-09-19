@@ -9,7 +9,7 @@
     <style>
       body {
         min-width: 320px;
-        max-width: 340px;
+        max-width: 360px;
         margin: 0;
         min-height: 0;
       }
@@ -54,7 +54,9 @@
         text-transform: uppercase;
         color: var(--muted);
       }
-      .tool-tabs { margin-top: 8px; }
+      .popup-converter { margin-top: 8px; }
+      .popup-converter .cv-drop { padding: 12px 10px; }
+      .popup-converter .tool-confirm { max-height: 280px; }
     </style>
   </head>
   <body>
@@ -81,7 +83,7 @@
         <label class="row">
           <span>
             <strong>Preview before upload</strong>
-            <small>Confirm each conversion — recommended for PDF/DOCX</small>
+            <small>Before/after slider — Accept uploads new file; Cancel keeps original</small>
           </span>
           <input type="checkbox" id="previewBeforeUpload" />
         </label>
@@ -139,115 +141,116 @@
       </section>
 
       <p class="section-label">Tools</p>
-      <div class="tool-tabs" role="tablist" aria-label="Tools">
-        <button type="button" class="tool-tab" role="tab" id="tabConvert" aria-selected="true" data-tool-tab="convert">Convert</button>
-        <button type="button" class="tool-tab" role="tab" id="tabCompress" aria-selected="false" data-tool-tab="compress">Compress</button>
-      </div>
 
-      <section class="panel converter-panel popup-converter tool-panel" id="manualConverter" role="tabpanel">
-        <div class="cv-drop" data-cv-drop tabindex="0">
-          <input type="file" data-cv-file accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+      <section class="panel converter-panel popup-converter" id="manualTools">
+        <div class="cv-drop" data-tool-drop tabindex="0">
+          <input type="file" data-tool-file accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
           <p class="cv-drop-label">Drop or click — image, HEIC, PDF, DOCX</p>
-          <p class="cv-name" data-cv-name>No file selected</p>
+          <p class="cv-name" data-tool-name>No file selected</p>
         </div>
 
-        <div class="cv-preview" data-cv-preview></div>
+        <div class="cv-preview" data-tool-source-preview></div>
 
-        <label class="row stack cv-format">
-          <span>
-            <strong>Target format</strong>
-            <small>Options update for the selected file</small>
-          </span>
-          <select data-cv-format>
-            <option value="image/png">PNG</option>
-            <option value="image/jpeg">JPEG</option>
-            <option value="image/webp">WebP</option>
-            <option value="application/pdf">PDF</option>
-          </select>
-        </label>
+        <div class="tool-ops" role="group" aria-label="Operations">
+          <label class="tool-check">
+            <input type="checkbox" data-tool-do-convert checked />
+            <span>
+              <strong>Convert</strong>
+              <small>Format</small>
+            </span>
+          </label>
+          <label class="tool-check">
+            <input type="checkbox" data-tool-do-compress />
+            <span>
+              <strong>Compress</strong>
+              <small>Size</small>
+            </span>
+          </label>
+        </div>
+
+        <div class="tool-section" data-tool-convert-opts>
+          <label class="row stack cv-format">
+            <span>
+              <strong>Target format</strong>
+              <small>Updates for the selected file</small>
+            </span>
+            <select data-tool-format>
+              <option value="image/png">PNG</option>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/webp">WebP</option>
+              <option value="application/pdf">PDF</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="tool-section" data-tool-compress-opts hidden>
+          <label class="row stack cv-format">
+            <span><strong>Compress mode</strong></span>
+            <select data-tool-cp-mode>
+              <option value="size">Fit target size</option>
+              <option value="quality">Quality + dimensions</option>
+            </select>
+          </label>
+          <div class="cp-grid">
+            <label data-cp-for="size">
+              <strong>Target KB</strong>
+              <input type="number" data-tool-target-kb min="8" max="10240" step="1" value="200" />
+            </label>
+            <label data-cp-for="quality">
+              <strong>Quality %</strong>
+              <input type="number" data-tool-quality min="10" max="100" step="1" value="80" />
+            </label>
+            <label data-cp-for="always">
+              <strong>Max W</strong>
+              <input type="number" data-tool-max-w min="0" max="10000" step="1" placeholder="—" />
+            </label>
+            <label data-cp-for="always">
+              <strong>Max H</strong>
+              <input type="number" data-tool-max-h min="0" max="10000" step="1" placeholder="—" />
+            </label>
+            <label data-cp-for="always" style="grid-column: 1 / -1">
+              <strong>Format</strong>
+              <select data-tool-cp-format>
+                <option value="image/jpeg">JPEG</option>
+                <option value="image/webp">WebP</option>
+                <option value="image/png">PNG</option>
+              </select>
+            </label>
+          </div>
+        </div>
 
         <div class="cv-actions">
-          <button type="button" class="cv-btn primary" data-cv-convert disabled>Convert</button>
-          <button type="button" class="cv-btn" data-cv-download disabled>Download</button>
+          <button type="button" class="cv-btn primary" data-tool-run disabled>Convert</button>
+          <button type="button" class="cv-btn" data-tool-download disabled>Download</button>
         </div>
 
         <div
           class="cv-drag"
-          data-cv-drag
+          data-tool-drag
           draggable="false"
           aria-disabled="true"
-          title="Drag the converted file onto a page upload zone"
+          title="Drag the result onto a page upload zone"
         >
           <strong>Drag out</strong>
           <span>Best from the open panel (popup may close)</span>
         </div>
 
-        <p class="cv-status" data-cv-status></p>
+        <div class="tool-confirm" data-tool-confirm hidden>
+          <div data-tool-confirm-mount></div>
+          <div class="cv-actions tool-confirm-actions">
+            <button type="button" class="cv-btn" data-tool-cancel>Cancel</button>
+            <button type="button" class="cv-btn primary" data-tool-accept>Accept</button>
+          </div>
+        </div>
+
+        <p class="cv-status" data-tool-status></p>
         <div class="cv-actions" style="margin-top: 8px; margin-bottom: 0;">
-          <button type="button" class="cv-btn" data-cv-open-panel>Open tools panel</button>
+          <button type="button" class="cv-btn" data-tool-open-panel>Open tools panel</button>
         </div>
         <p class="cv-note">
           Drag-out from this popup is unreliable in Chrome. Use <strong>Open tools panel</strong>
           for DownloadURL / File drag onto a page.
         </p>
-      </section>
-
-      <section class="panel converter-panel popup-converter tool-panel" id="manualCompressor" role="tabpanel" hidden>
-        <div class="cv-drop" data-cp-drop tabindex="0">
-          <input type="file" data-cp-file accept="image/*" hidden />
-          <p class="cv-drop-label">Drop or click — image to compress</p>
-          <p class="cv-name" data-cp-name>No file selected</p>
-        </div>
-        <div class="cv-preview" data-cp-preview></div>
-        <p class="cp-sizes" data-cp-sizes></p>
-
-        <label class="row stack cv-format">
-          <span><strong>Mode</strong></span>
-          <select data-cp-mode>
-            <option value="size">Fit target size</option>
-            <option value="quality">Quality + dimensions</option>
-          </select>
-        </label>
-
-        <div class="cp-grid">
-          <label data-cp-for="size">
-            <strong>Target KB</strong>
-            <input type="number" data-cp-target-kb min="8" max="10240" step="1" value="200" />
-          </label>
-          <label data-cp-for="quality">
-            <strong>Quality %</strong>
-            <input type="number" data-cp-quality min="10" max="100" step="1" value="80" />
-          </label>
-          <label data-cp-for="always">
-            <strong>Max W</strong>
-            <input type="number" data-cp-max-w min="0" max="10000" step="1" placeholder="—" />
-          </label>
-          <label data-cp-for="always">
-            <strong>Max H</strong>
-            <input type="number" data-cp-max-h min="0" max="10000" step="1" placeholder="—" />
-          </label>
-          <label data-cp-for="always" style="grid-column: 1 / -1">
-            <strong>Format</strong>
-            <select data-cp-format>
-              <option value="image/jpeg">JPEG</option>
-              <option value="image/webp">WebP</option>
-              <option value="image/png">PNG</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="cv-actions">
-          <button type="button" class="cv-btn primary" data-cp-run disabled>Compress</button>
-          <button type="button" class="cv-btn" data-cp-download disabled>Download</button>
-        </div>
-        <div class="cv-drag" data-cp-drag draggable="false" aria-disabled="true">
-          <strong>Drag out</strong>
-          <span>Use open panel for reliable drag</span>
-        </div>
-        <p class="cv-status" data-cp-status></p>
-        <div class="cv-actions" style="margin-top: 8px; margin-bottom: 0;">
-          <button type="button" class="cv-btn" data-cp-open-panel>Open tools panel</button>
-        </div>
       </section>
 
       <div class="links">
@@ -266,7 +269,7 @@
     <script src="../lib/converters/pdf.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
-    <script src="tool-tabs.js"></script>
+    <script src="../lib/compare-slider.js"></script>
     <script type="module" src="boot-converters.js"></script>
     <script src="options.js"></script>
   </body>

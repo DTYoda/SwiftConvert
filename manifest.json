@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
@@ -52,7 +52,7 @@
     },
     {
       "matches": ["http://*/*", "https://*/*", "file://*/*"],
-      "js": ["src/content/bridge.js"],
+      "js": ["src/lib/compare-slider.js", "src/content/bridge.js"],
       "run_at": "document_start",
       "all_frames": true,
       "match_about_blank": true
