@@ -233,6 +233,80 @@
     return `${base}.${extForMime(mime)}`;
   }
 
+  /** Known upload source types SwiftConvert may offer in the OS file picker. */
+  const PICKER_SOURCE_CATALOG = (() => {
+    const seen = new Set();
+    const out = [];
+    function add(ext, mime) {
+      const m = normalizeMime(mime);
+      const e = ext === "jpeg" ? "jpg" : ext;
+      const key = m + "|" + e;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ ext: e, mime: m });
+    }
+    for (const [ext, mime] of Object.entries(IMAGE_EXT)) add(ext, mime);
+    for (const [ext, mime] of Object.entries(DOC_EXT)) add(ext, mime);
+    add("pdf", "application/pdf");
+    return out;
+  })();
+
+  function acceptTokenForExt(ext) {
+    const tokens = [];
+    if (ext) tokens.push("." + ext);
+    if (ext === "jpg") tokens.push(".jpeg");
+    if (ext === "jpeg") tokens.push(".jpg");
+    if (ext === "heic") tokens.push(".heif");
+    if (ext === "heif") tokens.push(".heic");
+    return tokens;
+  }
+
+  function acceptTokenForMime(mime) {
+    const m = normalizeMime(mime);
+    if (!m) return [];
+    const tokens = [m];
+    if (m === "image/jpeg") tokens.push("image/jpg");
+    return tokens;
+  }
+
+  /**
+   * Build a file-input accept string that includes native site constraints plus
+   * every source type SwiftConvert can convert into an accepted target.
+   * @param {string} acceptAttr
+   * @param {string} [preferredImageFormat]
+   * @param {(file: File, targetMime: string) => boolean} [canHandle]
+   */
+  function buildExpandedAccept(acceptAttr, preferredImageFormat, canHandle) {
+    const acceptInfo = parseAccept(acceptAttr);
+    const tokens = new Set();
+
+    if (acceptInfo.raw) {
+      for (const part of acceptInfo.raw.split(",")) {
+        const t = part.trim();
+        if (t) tokens.add(t);
+      }
+    }
+
+    // No stated target — keep native behavior (empty = unrestricted; do not widen).
+    if (!acceptInfo.mimes.length && !acceptInfo.exts.length) {
+      return acceptInfo.raw || "";
+    }
+
+    for (const { ext, mime } of PICKER_SOURCE_CATALOG) {
+      if (mimeMatchesAccept(mime, acceptInfo)) continue;
+
+      const probe = new File([], `probe.${ext}`, { type: mime });
+      const target = inferTargetMime(probe, acceptAttr, preferredImageFormat);
+      if (!target) continue;
+      if (typeof canHandle === "function" && !canHandle(probe, target)) continue;
+
+      for (const t of acceptTokenForMime(mime)) tokens.add(t);
+      for (const t of acceptTokenForExt(ext)) tokens.add(t);
+    }
+
+    return [...tokens].join(",");
+  }
+
   const api = {
     normalizeMime,
     extFromName,
@@ -243,6 +317,7 @@
     mimeMatchesAccept,
     inferTargetMime,
     renameWithExt,
+    buildExpandedAccept,
     IMAGE_EXT,
     DOC_EXT
   };

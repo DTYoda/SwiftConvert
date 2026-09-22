@@ -101,7 +101,38 @@
         ok("Size-limit inference");
       }
 
-      // 7) Compress large JPEG under budget
+      // 7) Smart picker accept expansion
+      {
+        const original = "image/png,.png";
+        const expanded = SwiftConvertMime.buildExpandedAccept(
+          original,
+          "auto",
+          (f, t) => SwiftConvertRegistry.canHandle(f, t)
+        );
+        if (!/image\/png/.test(expanded)) fail("expanded missing png");
+        if (!/image\/jpeg/.test(expanded)) fail("expanded missing jpeg");
+        if (!/\.heic/.test(expanded)) fail("expanded missing heic");
+        if (/\.exe|\.zip|application\/octet-stream/.test(expanded)) {
+          fail("expanded must not list junk: " + expanded);
+        }
+        const nativeOnly = SwiftConvertMime.buildExpandedAccept("image/png,.png", "auto");
+        if (!/image\/jpeg/.test(nativeOnly)) fail("expanded without registry");
+
+        // Conversion must use the site original accept — expanded accepts JPEG,
+        // so inferTargetMime would skip JPG→PNG (the Arc/Mac auto-convert bug).
+        const jpg = await loadFile("/demo/sample.jpg", "sample.jpg", "image/jpeg");
+        const targetFromOriginal = SwiftConvertMime.inferTargetMime(jpg, original, "auto");
+        if (targetFromOriginal !== "image/png") {
+          fail("original accept must target png: " + targetFromOriginal);
+        }
+        const targetFromExpanded = SwiftConvertMime.inferTargetMime(jpg, expanded, "auto");
+        if (targetFromExpanded != null) {
+          fail("expanded accept must not drive convert (got " + targetFromExpanded + ")");
+        }
+        ok("PNG-only expanded accept (convert uses original)");
+      }
+
+      // 8) Compress large JPEG under budget
       {
         const file = await loadFile("/demo/sample-large.jpg", "sample-large.jpg", "image/jpeg");
         if (file.size <= 80000) fail("fixture not large enough: " + file.size);

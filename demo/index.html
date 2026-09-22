@@ -112,8 +112,10 @@
       </div>
       <p class="lede">
         Quiet upload matching for the browser. This demo accepts <strong>PNG</strong> on the
-        main fixtures — with auto-convert on, pick <code>sample.jpg</code> or
-        <code>sample.heic</code> and SwiftConvert converts before the page sees the file.
+        main fixtures — with auto-convert on, the file picker lists PNG plus convertible
+        sources (JPEG, HEIC, WebP, …) but not unrelated types like <code>.exe</code>. Pick
+        <code>sample.jpg</code> or <code>sample.heic</code> and SwiftConvert converts before
+        the page sees the file.
         Also try PDF→PNG, DOCX→text, and the <strong>80 KB auto-compress</strong> fixture
         with <code>sample-large.jpg</code>.
       </p>
@@ -123,6 +125,7 @@
         <ol class="steps">
           <li>Load the unpacked extension from the repo root (see README).</li>
           <li>Open this page via a local static server or <code>file://</code> (extension needs host access).</li>
+          <li>On a PNG-only input, open the file picker — you should see images and convertible types, not <code>.exe</code>.</li>
           <li>Pick <code>demo/sample.jpg</code> below. The result should show <code>image/png</code>.</li>
           <li>Optional: turn on “Preview before upload” in the popup and confirm the dialog.</li>
         </ol>

@@ -51,10 +51,10 @@
   const pendingHostConvert = new Map();
   let hostConvertSeq = 0;
 
-  /** @type {WeakMap<HTMLInputElement, string>} original accept before we neutralize */
+  /** @type {WeakMap<HTMLInputElement, string>} site accept before picker expansion */
   const savedAccept = new WeakMap();
-  /** Inputs whose accept is currently neutralized for an open/pending picker */
-  const acceptNeutralized = new WeakSet();
+  /** Inputs whose accept is temporarily expanded for an open/pending picker */
+  const acceptExpandedForPicker = new WeakSet();
 
   function postToBridge(type, payload) {
     window.postMessage({ source: CHANNEL, direction: "page-to-bridge", type, payload }, "*");
@@ -389,58 +389,77 @@
     return dt.files;
   }
 
-  // ─── Accept neutralization (must run BEFORE the native picker opens) ───────
-  // Converting after selection cannot help if accept=".png" hides JPG in the OS dialog.
+  // ─── Smart picker accept (must run BEFORE the native picker opens) ─────────
+  // Expand accept to native + convertible sources so the OS dialog hides junk
+  // (e.g. .exe on a PNG field) while still listing JPG / HEIC / WebP, etc.
+  // Conversion must always use the site's original accept (savedAccept) — never
+  // the expanded picker string, or JPG would "match" a PNG-only field and skip.
 
-  function shouldSkipAcceptNeutralize(input) {
+  const nativeSetAttribute = Element.prototype.setAttribute;
+
+  function shouldSkipAcceptExpansion(input) {
     if (!(input instanceof HTMLInputElement) || input.type !== "file") return true;
-    // Accept neutralize is for format conversion (open mismatched types in the OS dialog).
     if (settings.autoConvert === false) return true;
-    // Directory pickers and capture (camera/mic) must keep their constraints.
     if (input.webkitdirectory || input.hasAttribute("webkitdirectory")) return true;
     if (input.hasAttribute("capture")) return true;
     return false;
   }
 
+  function expandedAcceptForInput(original) {
+    return Mime.buildExpandedAccept(
+      original,
+      settings.preferredImageFormat,
+      (file, target) => Registry.canHandle(file, target)
+    );
+  }
+
   function prepareAcceptForPicker(input) {
-    if (shouldSkipAcceptNeutralize(input)) return;
+    if (shouldSkipAcceptExpansion(input)) return;
     const currentAttr = input.getAttribute("accept");
     const currentProp = input.accept;
     const current = currentAttr != null ? currentAttr : currentProp || "";
-    if (!current) return; // already unrestricted
+    if (!current) return;
 
+    // Capture site intent once. pointerdown + click both prepare the picker;
+    // never overwrite savedAccept with an already-expanded value.
     if (!savedAccept.has(input)) {
+      if (acceptExpandedForPicker.has(input)) return;
       savedAccept.set(input, current);
     }
 
-    // Neutralize so the OS dialog lists convertible types (e.g. JPG when site wants PNG).
+    const original = savedAccept.get(input);
+    if (!original) return;
+    const expanded = expandedAcceptForInput(original);
+    if (!expanded) return;
+
     try {
-      input.removeAttribute("accept");
-      if (input.accept) input.accept = "";
-    } catch (_) {
-      try {
-        input.accept = "";
-      } catch (__) {
-        /* ignore */
+      // Bypass patched setAttribute. IDL `input.accept = …` also reflects through
+      // setAttribute; using only the native attr write avoids poisoning savedAccept
+      // when prepare runs again while the picker is still open.
+      if (input.getAttribute("accept") !== expanded) {
+        nativeSetAttribute.call(input, "accept", expanded);
       }
+    } catch (_) {
+      /* ignore */
     }
-    acceptNeutralized.add(input);
+    acceptExpandedForPicker.add(input);
   }
 
   function restoreAcceptAfterPicker(input) {
     if (!(input instanceof HTMLInputElement)) return;
     if (!savedAccept.has(input)) return;
-    if (!acceptNeutralized.has(input)) return;
+    if (!acceptExpandedForPicker.has(input)) return;
     const original = savedAccept.get(input);
     try {
       if (original) {
-        input.setAttribute("accept", original);
-        input.accept = original;
+        nativeSetAttribute.call(input, "accept", original);
+      } else {
+        input.removeAttribute("accept");
       }
     } catch (_) {
       /* ignore */
     }
-    acceptNeutralized.delete(input);
+    acceptExpandedForPicker.delete(input);
   }
 
   function resolveFileInputFromEvent(event) {
@@ -499,13 +518,13 @@
   document.addEventListener("change", onPickerClosed, true);
   document.addEventListener("cancel", onPickerClosed, true);
   window.addEventListener("focus", () => {
-    // After native dialog dismisses, restore any neutralized inputs.
+    // After native dialog dismisses, restore any picker-expanded inputs.
     document.querySelectorAll('input[type="file"]').forEach((el) => {
-      if (acceptNeutralized.has(el)) restoreAcceptAfterPicker(el);
+      if (acceptExpandedForPicker.has(el)) restoreAcceptAfterPicker(el);
     });
   });
 
-  // Patch click / showPicker so programmatic openers also neutralize accept.
+  // Patch click / showPicker so programmatic openers also expand accept.
   const nativeInputClick = HTMLInputElement.prototype.click;
   HTMLInputElement.prototype.click = function patchedClick() {
     if (this.type === "file") prepareAcceptForPicker(this);
@@ -520,18 +539,23 @@
     };
   }
 
-  // If a framework sets accept= immediately before opening, keep our saved original.
-  const nativeSetAttribute = Element.prototype.setAttribute;
+  // If a framework sets accept= while the picker is open, remember site intent
+  // but keep the expanded accept on the element until the picker finishes.
   Element.prototype.setAttribute = function patchedSetAttribute(name, value) {
     if (
       this instanceof HTMLInputElement &&
       this.type === "file" &&
       String(name).toLowerCase() === "accept" &&
-      acceptNeutralized.has(this)
+      acceptExpandedForPicker.has(this)
     ) {
-      // Remember the site's intended accept for conversion, but stay neutralized
-      // until the picker finishes so the OS dialog does not re-filter.
-      savedAccept.set(this, value == null ? "" : String(value));
+      const next = value == null ? "" : String(value);
+      const prior = savedAccept.has(this) ? savedAccept.get(this) : "";
+      // Ignore re-application of our expanded string (prepare runs on
+      // pointerdown and click; IDL reflection can also re-enter here).
+      const expandedFromPrior = prior ? expandedAcceptForInput(prior) : "";
+      if (next && next !== expandedFromPrior) {
+        savedAccept.set(this, next);
+      }
       return undefined;
     }
     return nativeSetAttribute.apply(this, arguments);
@@ -598,7 +622,8 @@
   }
 
   function filesNeedWork(files, ctx) {
-    const accept = (ctx && ctx.accept) || acceptFromContext(ctx) || "";
+    // Prefer saved/site accept over any ctx.accept that may still be expanded.
+    const accept = acceptFromContext(ctx) || (ctx && ctx.accept) || "";
     return filesNeedConversion(files, accept) || filesNeedCompress(files, ctx);
   }
 
@@ -635,8 +660,8 @@
   document.addEventListener("input", onFileEvent, true);
 
   // ─── Drag and drop ────────────────────────────────────────────────────────
-  // Root cause of post-accept-neutralize DnD breakage:
-  // Neutralize only ran for picker gestures. Dropping a JPG onto <input accept=".png">
+  // Expand accept during drag-over on file inputs (same as picker) so drops are allowed.
+  // Dropping a JPG onto <input accept=".png">
   // is rejected by the browser before change fires, so conversion never runs.
   // Custom dropzones need a synthetic drop whose dataTransfer reliably carries Files.
 
@@ -844,8 +869,7 @@
     true
   );
 
-  // Neutralize accept during drag-over on file inputs so the browser will allow the
-  // drop gesture; conversion still uses savedAccept via effectiveAccept.
+  // Expand accept during drag-over on file inputs; conversion uses savedAccept via effectiveAccept.
   function onDragOverFileInput(event) {
     if (settings.autoConvert === false) return;
     const input = resolveDropContext(event).input;
@@ -856,7 +880,7 @@
 
   function restoreNeutralizedAccepts() {
     document.querySelectorAll('input[type="file"]').forEach((el) => {
-      if (acceptNeutralized.has(el)) restoreAcceptAfterPicker(el);
+      if (acceptExpandedForPicker.has(el)) restoreAcceptAfterPicker(el);
     });
   }
 
