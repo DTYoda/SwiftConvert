@@ -103,8 +103,9 @@
 
       // 7) Smart picker accept expansion
       {
+        const original = "image/png,.png";
         const expanded = SwiftConvertMime.buildExpandedAccept(
-          "image/png,.png",
+          original,
           "auto",
           (f, t) => SwiftConvertRegistry.canHandle(f, t)
         );
@@ -116,7 +117,19 @@
         }
         const nativeOnly = SwiftConvertMime.buildExpandedAccept("image/png,.png", "auto");
         if (!/image\/jpeg/.test(nativeOnly)) fail("expanded without registry");
-        ok("PNG-only expanded accept");
+
+        // Conversion must use the site original accept — expanded accepts JPEG,
+        // so inferTargetMime would skip JPG→PNG (the Arc/Mac auto-convert bug).
+        const jpg = await loadFile("/demo/sample.jpg", "sample.jpg", "image/jpeg");
+        const targetFromOriginal = SwiftConvertMime.inferTargetMime(jpg, original, "auto");
+        if (targetFromOriginal !== "image/png") {
+          fail("original accept must target png: " + targetFromOriginal);
+        }
+        const targetFromExpanded = SwiftConvertMime.inferTargetMime(jpg, expanded, "auto");
+        if (targetFromExpanded != null) {
+          fail("expanded accept must not drive convert (got " + targetFromExpanded + ")");
+        }
+        ok("PNG-only expanded accept (convert uses original)");
       }
 
       // 8) Compress large JPEG under budget

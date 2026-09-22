@@ -392,6 +392,10 @@
   // ─── Smart picker accept (must run BEFORE the native picker opens) ─────────
   // Expand accept to native + convertible sources so the OS dialog hides junk
   // (e.g. .exe on a PNG field) while still listing JPG / HEIC / WebP, etc.
+  // Conversion must always use the site's original accept (savedAccept) — never
+  // the expanded picker string, or JPG would "match" a PNG-only field and skip.
+
+  const nativeSetAttribute = Element.prototype.setAttribute;
 
   function shouldSkipAcceptExpansion(input) {
     if (!(input instanceof HTMLInputElement) || input.type !== "file") return true;
@@ -416,17 +420,25 @@
     const current = currentAttr != null ? currentAttr : currentProp || "";
     if (!current) return;
 
+    // Capture site intent once. pointerdown + click both prepare the picker;
+    // never overwrite savedAccept with an already-expanded value.
     if (!savedAccept.has(input)) {
+      if (acceptExpandedForPicker.has(input)) return;
       savedAccept.set(input, current);
     }
 
     const original = savedAccept.get(input);
+    if (!original) return;
     const expanded = expandedAcceptForInput(original);
     if (!expanded) return;
 
     try {
-      input.setAttribute("accept", expanded);
-      input.accept = expanded;
+      // Bypass patched setAttribute. IDL `input.accept = …` also reflects through
+      // setAttribute; using only the native attr write avoids poisoning savedAccept
+      // when prepare runs again while the picker is still open.
+      if (input.getAttribute("accept") !== expanded) {
+        nativeSetAttribute.call(input, "accept", expanded);
+      }
     } catch (_) {
       /* ignore */
     }
@@ -440,8 +452,9 @@
     const original = savedAccept.get(input);
     try {
       if (original) {
-        input.setAttribute("accept", original);
-        input.accept = original;
+        nativeSetAttribute.call(input, "accept", original);
+      } else {
+        input.removeAttribute("accept");
       }
     } catch (_) {
       /* ignore */
@@ -526,8 +539,8 @@
     };
   }
 
-  // If a framework sets accept= immediately before opening, keep our saved original.
-  const nativeSetAttribute = Element.prototype.setAttribute;
+  // If a framework sets accept= while the picker is open, remember site intent
+  // but keep the expanded accept on the element until the picker finishes.
   Element.prototype.setAttribute = function patchedSetAttribute(name, value) {
     if (
       this instanceof HTMLInputElement &&
@@ -535,9 +548,14 @@
       String(name).toLowerCase() === "accept" &&
       acceptExpandedForPicker.has(this)
     ) {
-      // Remember the site's intended accept for conversion, but keep expanded
-      // accept on the element until the picker finishes.
-      savedAccept.set(this, value == null ? "" : String(value));
+      const next = value == null ? "" : String(value);
+      const prior = savedAccept.has(this) ? savedAccept.get(this) : "";
+      // Ignore re-application of our expanded string (prepare runs on
+      // pointerdown and click; IDL reflection can also re-enter here).
+      const expandedFromPrior = prior ? expandedAcceptForInput(prior) : "";
+      if (next && next !== expandedFromPrior) {
+        savedAccept.set(this, next);
+      }
       return undefined;
     }
     return nativeSetAttribute.apply(this, arguments);
@@ -604,7 +622,8 @@
   }
 
   function filesNeedWork(files, ctx) {
-    const accept = (ctx && ctx.accept) || acceptFromContext(ctx) || "";
+    // Prefer saved/site accept over any ctx.accept that may still be expanded.
+    const accept = acceptFromContext(ctx) || (ctx && ctx.accept) || "";
     return filesNeedConversion(files, accept) || filesNeedCompress(files, ctx);
   }
 
