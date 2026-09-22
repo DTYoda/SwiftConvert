@@ -5,19 +5,25 @@
     <title>SwiftConvert convert host</title>
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' blob:; img-src 'self' blob: data:;"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' blob:; img-src 'self' blob: data:; media-src 'self' blob: data:;"
     />
   </head>
   <body>
-    <!-- Classic vendor + converters -->
+    <!-- Classic vendor + converters (ffmpeg.js loaded lazily by ffmpeg converter) -->
     <script src="../lib/vendor/libheif-bundle.js"></script>
     <script src="../lib/vendor/mammoth.browser.min.js"></script>
+    <script src="../lib/vendor/jszip.min.js"></script>
     <script src="../lib/mime.js"></script>
+    <script src="../lib/converters/catalog.js"></script>
     <script src="../lib/converters/image.js"></script>
     <script src="../lib/converters/pdf-write.js"></script>
+    <script src="../lib/converters/html-render.js"></script>
     <script src="../lib/converters/heic.js"></script>
     <script src="../lib/converters/docx.js"></script>
     <script src="../lib/converters/pdf.js"></script>
+    <script src="../lib/converters/text.js"></script>
+    <script src="../lib/converters/office.js"></script>
+    <script src="../lib/converters/ffmpeg.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
     <script type="module" src="host.js"></script>

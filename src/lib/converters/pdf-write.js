@@ -1,11 +1,22 @@
 /**
- * Minimal PDF writer — embed one JPEG image as a single-page PDF.
+ * Minimal PDF writer — embed JPEG image(s) as PDF pages.
  * Pure JS; safe for MAIN-world content scripts (no WASM).
  */
 (function (root) {
   function pad(n, width) {
     const s = String(n);
     return "0".repeat(Math.max(0, width - s.length)) + s;
+  }
+
+  function concatBytes(arrays) {
+    const total = arrays.reduce((n, p) => n + p.length, 0);
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const p of arrays) {
+      out.set(p, o);
+      o += p.length;
+    }
+    return out;
   }
 
   /**
@@ -15,6 +26,15 @@
    * @returns {Uint8Array}
    */
   function jpegImageToPdf(jpegBytes, width, height) {
+    return imagesToPdf([{ bytes: jpegBytes, width, height }]);
+  }
+
+  /**
+   * Multi-page PDF from JPEG page descriptors.
+   * @param {{bytes: Uint8Array, width: number, height: number}[]} pages
+   */
+  function imagesToPdf(pages) {
+    if (!pages || !pages.length) throw new Error("No pages for PDF");
     const encoder = new TextEncoder();
     const parts = [];
     const offsets = [0];
@@ -33,48 +53,66 @@
       offsets.push(len);
     }
 
+    const pageCount = pages.length;
+    // Object layout:
+    // 1 Catalog, 2 Pages, then for each page: Page, Contents, Image
+    // obj ids: 3 + i*3 = Page, 4 + i*3 = Contents, 5 + i*3 = Image
     add("%PDF-1.4\n");
 
     markObject(); // 1
     add("1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n");
 
+    const kidRefs = [];
+    for (let i = 0; i < pageCount; i++) {
+      kidRefs.push(`${3 + i * 3} 0 R`);
+    }
     markObject(); // 2
-    add("2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n");
-
-    markObject(); // 3
     add(
-      `3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] ` +
-        `/Contents 4 0 R /Resources<< /XObject<< /Im0 5 0 R >> >> >>endobj\n`
+      `2 0 obj<< /Type /Pages /Kids [${kidRefs.join(" ")}] /Count ${pageCount} >>endobj\n`
     );
 
-    const content = `q ${width} 0 0 ${height} 0 0 cm /Im0 Do Q\n`;
-    markObject(); // 4
-    add(`4 0 obj<< /Length ${content.length} >>stream\n${content}endstream\nendobj\n`);
+    for (let i = 0; i < pageCount; i++) {
+      const page = pages[i];
+      const pageObj = 3 + i * 3;
+      const contentObj = pageObj + 1;
+      const imageObj = pageObj + 2;
+      const w = page.width;
+      const h = page.height;
+      const jpegBytes = page.bytes;
 
-    markObject(); // 5
-    add(
-      `5 0 obj<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} ` +
-        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode ` +
-        `/Length ${jpegBytes.length} >>stream\n`
-    );
-    add(jpegBytes);
-    add("\nendstream\nendobj\n");
+      markObject();
+      add(
+        `${pageObj} 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] ` +
+          `/Contents ${contentObj} 0 R /Resources<< /XObject<< /Im0 ${imageObj} 0 R >> >> >>endobj\n`
+      );
 
+      const content = `q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q\n`;
+      markObject();
+      add(
+        `${contentObj} 0 obj<< /Length ${content.length} >>stream\n${content}endstream\nendobj\n`
+      );
+
+      markObject();
+      add(
+        `${imageObj} 0 obj<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} ` +
+          `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode ` +
+          `/Length ${jpegBytes.length} >>stream\n`
+      );
+      add(jpegBytes);
+      add("\nendstream\nendobj\n");
+    }
+
+    const objCount = 2 + pageCount * 3;
     const xrefStart = parts.reduce((n, p) => n + p.length, 0);
-    add(`xref\n0 6\n${pad(0, 10)} 65535 f \n`);
-    for (let i = 1; i <= 5; i++) {
+    add(`xref\n0 ${objCount + 1}\n${pad(0, 10)} 65535 f \n`);
+    for (let i = 1; i <= objCount; i++) {
       add(`${pad(offsets[i], 10)} 00000 n \n`);
     }
-    add(`trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`);
+    add(
+      `trailer<< /Size ${objCount + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`
+    );
 
-    const total = parts.reduce((n, p) => n + p.length, 0);
-    const out = new Uint8Array(total);
-    let o = 0;
-    for (const p of parts) {
-      out.set(p, o);
-      o += p.length;
-    }
-    return out;
+    return concatBytes(parts);
   }
 
   /**
@@ -117,6 +155,18 @@
     const name = Mime
       ? Mime.renameWithExt(file.name || "image", "application/pdf")
       : String(file.name || "image").replace(/\.[^.]+$/, "") + ".pdf";
+    return new File([pdfBytes], name, {
+      type: "application/pdf",
+      lastModified: Date.now()
+    });
+  }
+
+  function imagesToPdfFile(pages, filename) {
+    const Mime = root.SwiftConvertMime;
+    const pdfBytes = imagesToPdf(pages);
+    const name = Mime
+      ? Mime.renameWithExt(filename || "document", "application/pdf")
+      : String(filename || "document").replace(/\.[^.]+$/, "") + ".pdf";
     return new File([pdfBytes], name, {
       type: "application/pdf",
       lastModified: Date.now()
@@ -169,5 +219,11 @@
     return new File([bin], name, { type: "application/pdf", lastModified: Date.now() });
   }
 
-  root.SwiftConvertPdfWrite = { jpegImageToPdf, imageFileToPdf, textToPdfFile };
+  root.SwiftConvertPdfWrite = {
+    jpegImageToPdf,
+    imageFileToPdf,
+    textToPdfFile,
+    imagesToPdf,
+    imagesToPdfFile
+  };
 })(typeof globalThis !== "undefined" ? globalThis : self);

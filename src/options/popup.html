@@ -129,7 +129,7 @@
       <div class="page-panel" data-page="tools" role="tabpanel" hidden>
         <section class="panel converter-panel popup-converter" id="manualTools">
           <div class="cv-drop" data-tool-drop tabindex="0">
-            <input type="file" data-tool-file accept="image/*,.heic,.heif,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+            <input type="file" data-tool-file accept="image/*,audio/*,video/*,.heic,.heif,.pdf,.docx,.pptx,.xlsx,.svg,.txt,.csv,.html,.mp3,.wav,.ogg,.m4a,.flac,.mp4,.webm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
             <p class="cv-drop-label">Drop or click — image, HEIC, PDF, DOCX</p>
             <p class="cv-name" data-tool-name>No file selected</p>
           </div>
@@ -236,13 +236,19 @@
     </main>
     <script src="../lib/vendor/libheif-bundle.js"></script>
     <script src="../lib/vendor/mammoth.browser.min.js"></script>
+    <script src="../lib/vendor/jszip.min.js"></script>
     <script src="../lib/mime.js"></script>
+    <script src="../lib/converters/catalog.js"></script>
     <script src="../lib/converters/image.js"></script>
     <script src="../lib/compress.js"></script>
     <script src="../lib/converters/pdf-write.js"></script>
+    <script src="../lib/converters/html-render.js"></script>
     <script src="../lib/converters/heic.js"></script>
     <script src="../lib/converters/docx.js"></script>
     <script src="../lib/converters/pdf.js"></script>
+    <script src="../lib/converters/text.js"></script>
+    <script src="../lib/converters/office.js"></script>
+    <script src="../lib/converters/ffmpeg.js"></script>
     <script src="../lib/converters/stubs.js"></script>
     <script src="../lib/converters/registry.js"></script>
     <script src="../lib/compare-slider.js"></script>
