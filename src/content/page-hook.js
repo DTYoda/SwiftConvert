@@ -63,7 +63,7 @@
       ? `Converting ${file.name || "file"} to ${shortFormatLabel(target)} and compressing…`
       : `Converting ${file.name || "file"} to ${shortFormatLabel(target)}…`;
     if (av) {
-      return base + " (A/V via FFmpeg — first load can be slow)";
+      return base + " (A/V via FFmpeg — first load can be slow; files stay on your device)";
     }
     return base;
   }

@@ -82,6 +82,17 @@ h1 {
   font-size: 13px;
 }
 
+.trust {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.trust a {
+  font-weight: 600;
+}
+
 .panel {
   margin-top: 20px;
   background: var(--panel);

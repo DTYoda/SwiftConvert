@@ -15,6 +15,10 @@
           <div>
             <h1>SwiftConvert</h1>
             <p class="tag">Upload the file you have — we’ll match what the site wants.</p>
+            <p class="trust">
+              Files never leave your device.
+              <a href="https://github.com/DTYoda/SwiftConvert/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+            </p>
           </div>
         </div>
       </header>
@@ -128,11 +132,16 @@
           <h2>Converters &amp; compression</h2>
           <ul class="converters">
             <li><span class="ok">Ready</span> Images — JPEG, WebP, GIF, BMP ↔ PNG / JPEG / WebP / PDF</li>
-            <li><span class="ok">Ready</span> HEIC / HEIF → JPEG / PNG / WebP</li>
-            <li><span class="ok">Ready</span> PDF → PNG / JPEG / WebP (page 1)</li>
-            <li><span class="ok">Ready</span> DOCX → plain text / HTML / text PDF</li>
+            <li><span class="ok">Ready</span> HEIC / HEIF → JPEG / PNG / WebP / PDF</li>
+            <li><span class="ok">Ready</span> PDF → PNG / JPEG / WebP (page 1), text, ZIP</li>
+            <li><span class="ok">Ready</span> DOCX → text / HTML / visual PNG / PDF</li>
+            <li><span class="ok">Ready</span> Audio / video — ffmpeg.wasm (first load can be slow)</li>
             <li><span class="ok">Ready</span> Image compress — quality / resize to fit size limits</li>
           </ul>
+          <p class="trust" style="margin: 4px 0 12px;">
+            Processing is on-device only.
+            <a href="https://github.com/DTYoda/SwiftConvert/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
+          </p>
         </section>
 
         <p class="status" id="status" hidden>Saved</p>
@@ -247,12 +256,16 @@
           </div>
 
           <p class="cv-status" data-tool-status></p>
+          <p class="cv-note" data-tool-ffmpeg-hint>
+            Audio/video uses packaged FFmpeg — the first convert can take a while while the module loads (~30&nbsp;MB WASM).
+          </p>
           <div class="cv-actions" style="margin-top: 8px; margin-bottom: 0;">
             <button type="button" class="cv-btn" data-tool-open-panel>Open dedicated tools panel</button>
           </div>
           <p class="cv-note">
             Enable either or both operations. When both are on, SwiftConvert converts first, then compresses.
             Prefer the dedicated tools panel if you need reliable drag-out onto a webpage.
+            Files never leave your device.
           </p>
         </section>
       </div>

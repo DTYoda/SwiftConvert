@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SwiftConvert — Preview mock (store screenshot)</title>
+  <style>
+    @font-face {
+      font-family: "Outfit";
+      src: url("../src/assets/fonts/Outfit-SemiBold.woff2") format("woff2");
+      font-weight: 600;
+    }
+    @font-face {
+      font-family: "Outfit";
+      src: url("../src/assets/fonts/Outfit-Regular.woff2") format("woff2");
+      font-weight: 400;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Outfit", "Trebuchet MS", sans-serif;
+      color: #0c1f2e;
+      background:
+        radial-gradient(720px 380px at 0% -10%, rgba(126, 224, 210, 0.35) 0%, transparent 55%),
+        linear-gradient(165deg, #dceae6 0%, #e8f0ee 42%, #eef3f1 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .card {
+      width: 720px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(12,31,46,0.1);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 16px 40px rgba(12,31,46,0.08);
+    }
+    .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .brand img { width: 36px; height: 36px; border-radius: 10px; }
+    h1 { margin: 0; font-size: 20px; }
+    .tag { margin: 2px 0 0; color: #5a7385; font-size: 13px; }
+    .notice {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #e8f6f3;
+      color: #146b63;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .slider {
+      position: relative;
+      height: 320px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #cfd8d6;
+    }
+    .after, .before {
+      position: absolute; inset: 0;
+      background-size: cover;
+      background-position: center;
+    }
+    .after {
+      background-image: linear-gradient(135deg, #7ec8c0, #146b63);
+    }
+    .before {
+      width: 48%;
+      background-image: linear-gradient(135deg, #f0c27a, #c98a3c);
+      border-right: 2px solid #fff;
+    }
+    .labels {
+      position: absolute; inset: 12px; display: flex; justify-content: space-between;
+      pointer-events: none; font-size: 12px; font-weight: 600; color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .handle {
+      position: absolute; top: 0; bottom: 0; left: 48%; width: 2px; background: #fff;
+    }
+    .handle::after {
+      content: "";
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 28px; height: 28px; border-radius: 50%; background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .actions { display: flex; gap: 10px; margin-top: 14px; }
+    button {
+      flex: 1; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 600; cursor: default;
+    }
+    .ghost { background: #eef3f1; color: #0c1f2e; }
+    .primary { background: #146b63; color: #fff; }
+    .meta { margin-top: 10px; font-size: 12px; color: #5a7385; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <img src="../icons/icon48.png" alt="" />
+      <div>
+        <h1>Preview before upload</h1>
+        <p class="tag">Accept the converted file or keep the original</p>
+      </div>
+    </div>
+    <p class="notice">Converted sample.jpg → PNG · Files never leave your device</p>
+    <div class="slider" aria-hidden="true">
+      <div class="after"></div>
+      <div class="before"></div>
+      <div class="handle"></div>
+      <div class="labels"><span>Original</span><span>Converted</span></div>
+    </div>
+    <div class="actions">
+      <button class="ghost" type="button">Keep original</button>
+      <button class="primary" type="button">Upload converted</button>
+    </div>
+    <p class="meta">Optional preview — dismiss, Escape, or timeout keeps the original upload.</p>
+  </div>
+</body>
+</html>

@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "SwiftConvert",
-  "version": "0.4.0",
-  "description": "Convert mismatched uploads and compress oversized images to fit site limits.",
+  "version": "1.0.0",
+  "description": "Convert mismatched uploads and compress oversized images on-device so files fit what the site accepts.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "src/background/service-worker.js"
+    "service_worker": "src/background/service-worker.js",
+    "scripts": ["src/background/service-worker.js"]
   },
   "action": {
     "default_title": "SwiftConvert",
@@ -103,7 +104,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "swiftconvert@local.dev",
+      "id": "swiftconvert@dtyoda.dev",
       "strict_min_version": "128.0"
     }
   }
