@@ -57,9 +57,6 @@
   /** @type {string | null} */
   let confirmAfterUrl = null;
 
-  const DOCX =
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
   function setStatus(text, kind) {
     if (!statusEl) return;
     statusEl.textContent = text || "";
@@ -113,8 +110,23 @@
     const mime = Mime.mimeFromFile(file);
     if (mime === "image/heic" || mime === "image/heif") return "heic";
     if (mime === "application/pdf") return "pdf";
-    if (mime === DOCX || mime === "application/msword") return "docx";
+    if (
+      mime ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mime === "application/msword"
+    ) {
+      return "docx";
+    }
+    if (mime.startsWith("audio/")) return "audio";
+    if (mime.startsWith("video/")) return "video";
     if (mime.startsWith("image/")) return "image";
+    if (mime === "text/plain" || mime === "text/html" || mime === "text/csv") return "text";
+    if (
+      mime.includes("presentationml") ||
+      mime.includes("spreadsheetml")
+    ) {
+      return "office";
+    }
     return "other";
   }
 
@@ -123,40 +135,15 @@
       Boolean(mime) &&
       mime.startsWith("image/") &&
       mime !== "image/heic" &&
-      mime !== "image/heif"
+      mime !== "image/heif" &&
+      mime !== "image/svg+xml"
     );
   }
 
   function optionsFor(file) {
-    const kind = sourceKind(file);
-    if (kind === "heic") {
-      return [
-        ["image/jpeg", "JPEG"],
-        ["image/png", "PNG"],
-        ["image/webp", "WebP"]
-      ];
-    }
-    if (kind === "pdf") {
-      return [
-        ["image/png", "PNG (page 1)"],
-        ["image/jpeg", "JPEG (page 1)"],
-        ["image/webp", "WebP (page 1)"]
-      ];
-    }
-    if (kind === "docx") {
-      return [
-        ["text/plain", "Plain text"],
-        ["text/html", "HTML"],
-        ["application/pdf", "PDF (text)"]
-      ];
-    }
-    if (kind === "image") {
-      return [
-        ["image/png", "PNG"],
-        ["image/jpeg", "JPEG"],
-        ["image/webp", "WebP"],
-        ["application/pdf", "PDF"]
-      ];
+    if (Registry.targetsForFile) {
+      const opts = Registry.targetsForFile(file);
+      if (opts && opts.length) return opts;
     }
     return [
       ["image/png", "PNG"],
@@ -254,7 +241,15 @@
       if (doCompress && (kind === "heic" || kind === "pdf" || kind === "docx")) {
         // Compress is image-only; leave checkbox state but Run will validate
       }
-      setStatus("Choose Convert and/or Compress, then Run", "ok");
+      const kind = sourceKind(file);
+      if (kind === "audio" || kind === "video") {
+        setStatus(
+          "A/V conversion uses FFmpeg in the convert host — first run may load a large WASM module.",
+          "ok"
+        );
+      } else {
+        setStatus("Choose Convert and/or Compress, then Run", "ok");
+      }
     } else {
       revokeSourcePreview();
       setStatus("");
@@ -348,6 +343,10 @@
         const target = (formatSelect && formatSelect.value) || "image/png";
         if (!Registry.canHandle(working, target)) {
           throw new Error("Cannot convert this file to " + target);
+        }
+        const kind = sourceKind(working);
+        if (kind === "audio" || kind === "video") {
+          setStatus("Loading FFmpeg / converting A/V… (first load can be slow)");
         }
         working = await Registry.convertFile(working, target);
       }

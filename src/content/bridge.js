@@ -41,10 +41,12 @@
 
     const PAGE_SCRIPTS = [
     "src/lib/mime.js",
+    "src/lib/converters/catalog.js",
     "src/lib/converters/image.js",
     "src/lib/compress.js",
     "src/lib/size-limit.js",
     "src/lib/converters/pdf-write.js",
+    "src/lib/converters/text.js",
     "src/lib/converters/stubs.js",
     "src/lib/converters/registry.js",
     "src/content/page-hook.js"

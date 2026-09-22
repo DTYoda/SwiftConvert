@@ -24,6 +24,21 @@ SwiftConvert vendors the following client-side libraries for conversion and bran
 - License: BSD-2-Clause
 - https://github.com/mwilliamson/mammoth.js
 
+## JSZip
+
+- Package: `jszip`
+- File: `jszip.min.js`
+- License: MIT / GPLv3 dual
+- https://github.com/Stuk/jszip
+
+## ffmpeg.wasm
+
+- Packages: `@ffmpeg/ffmpeg`, `@ffmpeg/core`
+- Files: `ffmpeg/ffmpeg.js`, `ffmpeg/814.ffmpeg.js` (packaged worker), `ffmpeg/ffmpeg-core.js`, `ffmpeg/ffmpeg-core.wasm`
+- License: MIT
+- https://github.com/ffmpegwasm/ffmpeg.wasm
+- Loaded lazily in the convert host only. Uses packaged workers (`worker-src 'self'`) — no `blob:` workers / `unsafe-eval`.
+
 ## Outfit font
 
 - Files: `src/assets/fonts/Outfit-*.woff2`

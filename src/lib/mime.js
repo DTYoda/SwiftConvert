@@ -25,7 +25,33 @@
     doc: "application/msword",
     txt: "text/plain",
     html: "text/html",
-    htm: "text/html"
+    htm: "text/html",
+    csv: "text/csv"
+  };
+
+  const AUDIO_EXT = {
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    oga: "audio/ogg",
+    m4a: "audio/mp4",
+    aac: "audio/aac",
+    flac: "audio/flac",
+    weba: "audio/webm"
+  };
+
+  const VIDEO_EXT = {
+    mp4: "video/mp4",
+    webm: "video/webm",
+    ogv: "video/ogg",
+    mov: "video/quicktime",
+    mkv: "video/x-matroska",
+    avi: "video/avi"
+  };
+
+  const OFFICE_EXT = {
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   };
 
   const EXT_FOR_MIME = {
@@ -35,13 +61,30 @@
     "image/webp": "webp",
     "image/bmp": "bmp",
     "image/avif": "avif",
+    "image/svg+xml": "svg",
     "image/heic": "heic",
     "image/heif": "heif",
     "application/pdf": "pdf",
+    "application/zip": "zip",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
     "text/plain": "txt",
-    "text/html": "html"
+    "text/html": "html",
+    "text/csv": "csv",
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/wav": "wav",
+    "audio/ogg": "ogg",
+    "audio/mp4": "m4a",
+    "audio/aac": "aac",
+    "audio/flac": "flac",
+    "audio/webm": "weba",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/ogg": "ogv",
+    "video/quicktime": "mov"
   };
 
   function normalizeMime(m) {
@@ -55,7 +98,14 @@
   }
 
   function mimeFromExt(ext) {
-    return IMAGE_EXT[ext] || DOC_EXT[ext] || "";
+    return (
+      IMAGE_EXT[ext] ||
+      DOC_EXT[ext] ||
+      AUDIO_EXT[ext] ||
+      VIDEO_EXT[ext] ||
+      OFFICE_EXT[ext] ||
+      ""
+    );
   }
 
   function mimeFromFile(file) {
@@ -68,6 +118,8 @@
     const m = normalizeMime(mime);
     if (EXT_FOR_MIME[m]) return EXT_FOR_MIME[m];
     if (m.startsWith("image/")) return m.slice(6).replace("jpeg", "jpg");
+    if (m.startsWith("audio/")) return m.slice(6).replace("mpeg", "mp3");
+    if (m.startsWith("video/")) return m.slice(6);
     return "bin";
   }
 
@@ -114,6 +166,7 @@
     if (ext === "jpeg" && acceptInfo.exts.includes("jpg")) return true;
     if (ext === "heic" && acceptInfo.exts.includes("heif")) return true;
     if (ext === "heif" && acceptInfo.exts.includes("heic")) return true;
+    if (ext === "mp3" && acceptInfo.exts.includes("mpeg")) return true;
     return false;
   }
 
@@ -128,6 +181,18 @@
     }
     if (imageTargets.includes("image/png")) return "image/png";
     return imageTargets[0];
+  }
+
+  function pickPreferredAudio(audioTargets) {
+    if (audioTargets.includes("audio/mpeg")) return "audio/mpeg";
+    if (audioTargets.includes("audio/wav")) return "audio/wav";
+    return audioTargets[0];
+  }
+
+  function pickPreferredVideo(videoTargets) {
+    if (videoTargets.includes("video/mp4")) return "video/mp4";
+    if (videoTargets.includes("video/webm")) return "video/webm";
+    return videoTargets[0];
   }
 
   /**
@@ -148,6 +213,8 @@
 
     const concrete = acceptInfo.mimes.filter((m) => !m.endsWith("/*"));
     const imageTargets = concrete.filter((m) => m.startsWith("image/"));
+    const audioTargets = concrete.filter((m) => m.startsWith("audio/"));
+    const videoTargets = concrete.filter((m) => m.startsWith("video/"));
     const isHeic =
       sourceMime === "image/heic" ||
       sourceMime === "image/heif" ||
@@ -157,6 +224,20 @@
       sourceMime ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       sourceMime === "application/msword";
+    const isPptx =
+      sourceMime ===
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    const isXlsx =
+      sourceMime ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const isAudio = sourceMime.startsWith("audio/");
+    const isVideo = sourceMime.startsWith("video/");
+    const isTextish =
+      sourceMime === "text/plain" ||
+      sourceMime === "text/html" ||
+      sourceMime === "text/csv" ||
+      sourceMime === "application/csv";
+    const isSvg = sourceMime === "image/svg+xml";
 
     // HEIC / PDF page → preferred raster when field wants images
     if ((isHeic || isPdf) && imageTargets.length) {
@@ -174,8 +255,30 @@
       return pickPreferredImage(["image/png", "image/jpeg"], preferredImageFormat);
     }
 
-    // DOCX → text / html / pdf
+    // HEIC → PDF
+    if (isHeic && (concrete.includes("application/pdf") || acceptInfo.exts.includes("pdf"))) {
+      return "application/pdf";
+    }
+
+    // PDF → text
+    if (isPdf && (concrete.includes("text/plain") || acceptInfo.exts.includes("txt"))) {
+      return "text/plain";
+    }
+    if (isPdf && acceptInfo.mimes.some((m) => m === "text/*")) return "text/plain";
+
+    // DOCX → images / pdf / text / html
     if (isDocx) {
+      if (imageTargets.length) {
+        return pickPreferredImage(imageTargets, preferredImageFormat);
+      }
+      if (acceptInfo.exts.some((e) => IMAGE_EXT[e])) {
+        for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+          if (acceptInfo.exts.includes(ext)) return mimeFromExt(ext === "jpeg" ? "jpg" : ext);
+        }
+      }
+      if (acceptInfo.mimes.some((m) => m === "image/*")) {
+        return pickPreferredImage(["image/png", "image/jpeg"], preferredImageFormat);
+      }
       if (concrete.includes("application/pdf") || acceptInfo.exts.includes("pdf")) {
         return "application/pdf";
       }
@@ -186,6 +289,44 @@
         return "text/plain";
       }
       if (acceptInfo.mimes.some((m) => m === "text/*")) return "text/plain";
+    }
+
+    // PPTX / XLSX
+    if (isPptx || isXlsx) {
+      if (concrete.includes("application/pdf") || acceptInfo.exts.includes("pdf")) {
+        return "application/pdf";
+      }
+      if (concrete.includes("text/html") || acceptInfo.exts.includes("html")) {
+        return "text/html";
+      }
+      if (isXlsx && (concrete.includes("text/csv") || acceptInfo.exts.includes("csv"))) {
+        return "text/csv";
+      }
+      if (concrete.includes("text/plain") || acceptInfo.exts.includes("txt")) {
+        return "text/plain";
+      }
+    }
+
+    // Text / HTML / CSV → PDF
+    if (isTextish && (concrete.includes("application/pdf") || acceptInfo.exts.includes("pdf"))) {
+      return "application/pdf";
+    }
+    if (sourceMime === "text/html" && (concrete.includes("text/plain") || acceptInfo.exts.includes("txt"))) {
+      return "text/plain";
+    }
+    if (
+      (sourceMime === "text/csv" || sourceMime === "application/csv") &&
+      (concrete.includes("text/plain") || acceptInfo.exts.includes("txt"))
+    ) {
+      return "text/plain";
+    }
+
+    // SVG → raster
+    if (isSvg && imageTargets.length) {
+      return pickPreferredImage(imageTargets, preferredImageFormat);
+    }
+    if (isSvg && acceptInfo.mimes.some((m) => m === "image/*")) {
+      return pickPreferredImage(["image/png", "image/jpeg"], preferredImageFormat);
     }
 
     // Raster images → PDF when field wants PDF
@@ -200,6 +341,22 @@
 
     if (imageTargets.length && sourceMime.startsWith("image/")) {
       return pickPreferredImage(imageTargets, preferredImageFormat);
+    }
+
+    // Audio / video
+    if (isAudio || isVideo) {
+      if (audioTargets.length) return pickPreferredAudio(audioTargets);
+      if (videoTargets.length) return pickPreferredVideo(videoTargets);
+      if (acceptInfo.mimes.some((m) => m === "audio/*")) {
+        return pickPreferredAudio(["audio/mpeg", "audio/wav"]);
+      }
+      if (acceptInfo.mimes.some((m) => m === "video/*")) {
+        return pickPreferredVideo(["video/mp4", "video/webm"]);
+      }
+      for (const ext of acceptInfo.exts) {
+        if (AUDIO_EXT[ext]) return AUDIO_EXT[ext];
+        if (VIDEO_EXT[ext]) return VIDEO_EXT[ext];
+      }
     }
 
     // Extension-only accept (e.g. ".png")
@@ -247,6 +404,9 @@
     }
     for (const [ext, mime] of Object.entries(IMAGE_EXT)) add(ext, mime);
     for (const [ext, mime] of Object.entries(DOC_EXT)) add(ext, mime);
+    for (const [ext, mime] of Object.entries(AUDIO_EXT)) add(ext, mime);
+    for (const [ext, mime] of Object.entries(VIDEO_EXT)) add(ext, mime);
+    for (const [ext, mime] of Object.entries(OFFICE_EXT)) add(ext, mime);
     add("pdf", "application/pdf");
     return out;
   })();
@@ -266,6 +426,7 @@
     if (!m) return [];
     const tokens = [m];
     if (m === "image/jpeg") tokens.push("image/jpg");
+    if (m === "audio/mpeg") tokens.push("audio/mp3");
     return tokens;
   }
 
@@ -292,7 +453,12 @@
       return acceptInfo.raw || "";
     }
 
-    for (const { ext, mime } of PICKER_SOURCE_CATALOG) {
+    const catalog =
+      root.SwiftConvertCatalog && root.SwiftConvertCatalog.pickerSources
+        ? root.SwiftConvertCatalog.pickerSources()
+        : PICKER_SOURCE_CATALOG;
+
+    for (const { ext, mime } of catalog) {
       if (mimeMatchesAccept(mime, acceptInfo)) continue;
 
       const probe = new File([], `probe.${ext}`, { type: mime });
@@ -319,7 +485,11 @@
     renameWithExt,
     buildExpandedAccept,
     IMAGE_EXT,
-    DOC_EXT
+    DOC_EXT,
+    AUDIO_EXT,
+    VIDEO_EXT,
+    OFFICE_EXT,
+    PICKER_SOURCE_CATALOG
   };
 
   root.SwiftConvertMime = api;

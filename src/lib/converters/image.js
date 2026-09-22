@@ -1,15 +1,18 @@
 /**
  * Image converter using Canvas / createImageBitmap.
- * Supports JPEG, PNG, WebP, GIF (first frame), BMP → PNG/JPEG/WebP.
+ * Supports JPEG, PNG, WebP, GIF (first frame), BMP, SVG → PNG/JPEG/WebP.
  */
 (function (root) {
   const Mime = root.SwiftConvertMime;
 
   async function blobToImageBitmap(blob) {
     if (typeof createImageBitmap === "function") {
-      return createImageBitmap(blob);
+      try {
+        return await createImageBitmap(blob);
+      } catch (_) {
+        /* fall through for SVG */
+      }
     }
-    // Fallback via HTMLImageElement
     const url = URL.createObjectURL(blob);
     try {
       const img = await new Promise((resolve, reject) => {
@@ -22,6 +25,27 @@
     } finally {
       URL.revokeObjectURL(url);
     }
+  }
+
+  async function svgFileToImage(file) {
+    const text = await file.text();
+    // Force XML namespace if missing; strip scripts for safety
+    let svg = text.replace(/<script[\s\S]*?<\/script>/gi, "");
+    if (!/xmlns=/.test(svg)) {
+      svg = svg.replace(
+        /<svg\b/i,
+        '<svg xmlns="http://www.w3.org/2000/svg"'
+      );
+    }
+    const url =
+      "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Failed to decode SVG"));
+      el.src = url;
+    });
+    return img;
   }
 
   function canvasToBlob(canvas, mime, quality) {
@@ -49,9 +73,6 @@
     if (!targetMime.startsWith("image/")) {
       throw new Error(`Unsupported image target: ${targetMime}`);
     }
-    if (sourceMime === "image/svg+xml") {
-      throw new Error("SVG conversion not supported in this slice");
-    }
     if (
       sourceMime === "image/heic" ||
       sourceMime === "image/heif" ||
@@ -60,14 +81,20 @@
       throw new Error("HEIC/HEIF requires the SwiftConvert host converter");
     }
 
-    const bitmap = await blobToImageBitmap(file);
-    const w = bitmap.width || bitmap.naturalWidth;
-    const h = bitmap.height || bitmap.naturalHeight;
+    let bitmap;
+    if (sourceMime === "image/svg+xml") {
+      bitmap = await svgFileToImage(file);
+    } else {
+      bitmap = await blobToImageBitmap(file);
+    }
+
+    const w = bitmap.width || bitmap.naturalWidth || 800;
+    const h = bitmap.height || bitmap.naturalHeight || 600;
     if (!w || !h) throw new Error("Could not read image dimensions");
 
     let canvas;
     let ctx;
-    if (typeof OffscreenCanvas !== "undefined") {
+    if (typeof OffscreenCanvas !== "undefined" && sourceMime !== "image/svg+xml") {
       canvas = new OffscreenCanvas(w, h);
       ctx = canvas.getContext("2d");
     } else {
@@ -78,7 +105,6 @@
     }
     if (!ctx) throw new Error("Canvas 2D unavailable");
 
-    // White background for JPEG (no alpha)
     if (targetMime === "image/jpeg") {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, w, h);
@@ -86,37 +112,38 @@
     ctx.drawImage(bitmap, 0, 0, w, h);
     if (bitmap.close) bitmap.close();
 
-    const quality = targetMime === "image/jpeg" || targetMime === "image/webp" ? 0.92 : undefined;
+    let outMime = targetMime;
+    const quality = outMime === "image/jpeg" || outMime === "image/webp" ? 0.92 : undefined;
     let blob;
     try {
-      blob = await canvasToBlob(canvas, targetMime, quality);
+      blob = await canvasToBlob(canvas, outMime, quality);
     } catch (err) {
-      // Some browsers reject webp encode — fall back to png
-      if (targetMime === "image/webp") {
+      if (outMime === "image/webp") {
         blob = await canvasToBlob(canvas, "image/png");
-        targetMime = "image/png";
+        outMime = "image/png";
       } else {
         throw err;
       }
     }
 
-    const name = Mime.renameWithExt(file.name, targetMime);
+    const name = Mime.renameWithExt(file.name, outMime);
     return new File([blob], name, {
-      type: targetMime,
+      type: outMime,
       lastModified: Date.now()
     });
   }
 
   function canConvert(file, targetMime) {
     const src = Mime.mimeFromFile(file);
-    return (
-      src.startsWith("image/") &&
-      src !== "image/svg+xml" &&
-      src !== "image/heic" &&
-      src !== "image/heif" &&
-      src !== "image/heic-sequence" &&
-      targetMime.startsWith("image/")
-    );
+    if (!src.startsWith("image/") || !targetMime.startsWith("image/")) return false;
+    if (
+      src === "image/heic" ||
+      src === "image/heif" ||
+      src === "image/heic-sequence"
+    ) {
+      return false;
+    }
+    return true;
   }
 
   root.SwiftConvertImage = { convertImage, canConvert };
