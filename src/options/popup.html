@@ -16,6 +16,8 @@
       .wrap { padding: 14px 14px 12px; }
       h1 { font-size: 16px; margin: 0; letter-spacing: -0.02em; }
       .tag { font-size: 12px; margin: 2px 0 0; }
+      .trust { font-size: 11px; margin: 4px 0 0; color: var(--muted, #5a7385); line-height: 1.35; }
+      .trust a { font-weight: 600; }
       .panel { margin-top: 12px; padding: 4px 12px; }
       .row { padding: 10px 0; gap: 12px; }
       .row small { font-size: 11px; line-height: 1.35; }
@@ -36,6 +38,7 @@
         <div>
           <h1>SwiftConvert</h1>
           <p class="tag">Match uploads · compress to fit</p>
+          <p class="trust">Files never leave your device · <a href="https://github.com/DTYoda/SwiftConvert/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy</a></p>
         </div>
       </header>
 
@@ -224,6 +227,9 @@
           </div>
 
           <p class="cv-status" data-tool-status></p>
+          <p class="cv-note" data-tool-ffmpeg-hint>
+            Audio/video uses packaged FFmpeg — the first convert can take a while while the module loads.
+          </p>
           <div class="cv-actions" style="margin-top: 8px; margin-bottom: 0;">
             <button type="button" class="cv-btn" data-tool-open-panel>Open tools panel</button>
           </div>
