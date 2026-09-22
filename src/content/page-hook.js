@@ -42,8 +42,30 @@
     if (m.includes("wordprocessingml") || m === "docx") return "DOCX";
     if (m === "text/plain") return "text";
     if (m === "text/html") return "HTML";
+    if (m === "text/csv") return "CSV";
+    if (m === "audio/mpeg" || m === "audio/mp3") return "MP3";
+    if (m === "audio/wav") return "WAV";
+    if (m === "audio/ogg") return "OGG";
+    if (m === "audio/mp4" || m === "audio/aac") return "M4A";
+    if (m === "audio/flac") return "FLAC";
+    if (m === "video/mp4") return "MP4";
+    if (m === "video/webm") return "WebM";
+    if (m.startsWith("audio/")) return "audio";
+    if (m.startsWith("video/")) return "video";
     const slash = m.lastIndexOf("/");
     return (slash >= 0 ? m.slice(slash + 1) : m).toUpperCase();
+  }
+
+  function processingMessageFor(file, target, likelyCompress) {
+    const src = Mime.mimeFromFile(file);
+    const av = src.startsWith("audio/") || src.startsWith("video/");
+    const base = likelyCompress
+      ? `Converting ${file.name || "file"} to ${shortFormatLabel(target)} and compressing…`
+      : `Converting ${file.name || "file"} to ${shortFormatLabel(target)}…`;
+    if (av) {
+      return base + " (A/V via FFmpeg — first load can be slow)";
+    }
+    return base;
   }
 
   const pendingPreview = new Map();
@@ -197,11 +219,7 @@
     try {
       if (settings.autoConvert !== false && target && Registry.canHandle(file, target)) {
         try {
-          beginProcessing(
-            likelyCompress
-              ? `Converting ${file.name || "file"} to ${shortFormatLabel(target)} and compressing…`
-              : `Converting ${file.name || "file"} to ${shortFormatLabel(target)}…`
-          );
+          beginProcessing(processingMessageFor(file, target, likelyCompress));
           if (Registry.needsHost && Registry.needsHost(file, target)) {
             working = await requestHostConvert(file, target);
           } else {
