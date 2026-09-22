@@ -101,7 +101,25 @@
         ok("Size-limit inference");
       }
 
-      // 7) Compress large JPEG under budget
+      // 7) Smart picker accept expansion
+      {
+        const expanded = SwiftConvertMime.buildExpandedAccept(
+          "image/png,.png",
+          "auto",
+          (f, t) => SwiftConvertRegistry.canHandle(f, t)
+        );
+        if (!/image\/png/.test(expanded)) fail("expanded missing png");
+        if (!/image\/jpeg/.test(expanded)) fail("expanded missing jpeg");
+        if (!/\.heic/.test(expanded)) fail("expanded missing heic");
+        if (/\.exe|\.zip|application\/octet-stream/.test(expanded)) {
+          fail("expanded must not list junk: " + expanded);
+        }
+        const nativeOnly = SwiftConvertMime.buildExpandedAccept("image/png,.png", "auto");
+        if (!/image\/jpeg/.test(nativeOnly)) fail("expanded without registry");
+        ok("PNG-only expanded accept");
+      }
+
+      // 8) Compress large JPEG under budget
       {
         const file = await loadFile("/demo/sample-large.jpg", "sample-large.jpg", "image/jpeg");
         if (file.size <= 80000) fail("fixture not large enough: " + file.size);
