@@ -83,7 +83,7 @@ After updating: reload the extension on the extensions page, then hard-refresh o
 
 **Tools:** Pick or drop a file, Convert and/or Compress, Run, then Accept for download / drag-out.
 
-There is no global kill switch — turn off auto-convert and auto-compress to stop automatic behavior.
+Turn off auto-convert and auto-compress to stop automatic behavior.
 
 ## Links
 
