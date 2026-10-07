@@ -128,4 +128,4 @@ scripts/pack-extension.sh
 cd icons/src && npm install && npm run rasterize
 ```
 
-Writes `icon16.png` … `icon512.png` via resvg — never upscaling a tiny PNG.
+Writes `icon16.png` … `icon512.png` via resvg — never upscaling a tiny PNG..
