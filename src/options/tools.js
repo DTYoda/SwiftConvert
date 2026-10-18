@@ -46,6 +46,7 @@
   let sourceFile = null;
   /** @type {File | null} */
   let resultFile = null;
+  let resultToken = null;
   /** @type {File | null} */
   let pendingResult = null;
   /** @type {string | null} */
@@ -95,6 +96,7 @@
 
   function clearResult() {
     resultFile = null;
+    resultToken = null;
     pendingResult = null;
     revokeObjectUrl();
     hideConfirm();
@@ -241,7 +243,6 @@
       if (doCompress && (kind === "heic" || kind === "pdf" || kind === "docx")) {
         // Compress is image-only; leave checkbox state but Run will validate
       }
-      const kind = sourceKind(file);
       if (kind === "audio" || kind === "video") {
         setStatus(
           "A/V conversion uses FFmpeg in the convert host — first run may load a large WASM module.",
@@ -306,6 +307,7 @@
     hideConfirm();
     if (!out) return;
     resultFile = out;
+    resultToken = crypto.randomUUID();
     revokeObjectUrl();
     objectUrl = URL.createObjectURL(out);
     if (downloadBtn) downloadBtn.disabled = false;
@@ -411,31 +413,36 @@
       event.preventDefault();
       return;
     }
-    if (!objectUrl) objectUrl = URL.createObjectURL(resultFile);
     const dt = event.dataTransfer;
     if (!dt) return;
     dt.effectAllowed = "copy";
     try {
       dt.items.add(resultFile);
     } catch (_) {
-      /* ignore */
+      // Chrome may discard this File when the drag crosses into a webpage.
     }
-    try {
-      const safeName = String(resultFile.name).replace(/[:\r\n]/g, "_");
-      dt.setData(
-        "DownloadURL",
-        `${resultFile.type || "application/octet-stream"}:${safeName}:${objectUrl}`
-      );
-    } catch (_) {
-      /* ignore */
-    }
-    try {
-      dt.setData("text/uri-list", objectUrl);
-      dt.setData("text/plain", resultFile.name);
-    } catch (_) {
-      /* ignore */
-    }
+    // An opaque identifier survives the native drag. Only the extension can
+    // resolve it; no file bytes or extension blob URLs are exposed as drag text.
+    dt.setData("application/x-swiftconvert-result", resultToken);
+    dt.setData("text/plain", "swiftconvert-result:" + resultToken);
   }
+
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (!message || message.type !== "manual-drag-source") return false;
+    if (sender.id !== chrome.runtime.id || sender.tab) return false;
+    if (!resultFile || message.token !== resultToken) return false;
+    const file = resultFile;
+    const offset = message.offset;
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > file.size) return false;
+    // Keep each response well below Chrome's extension message size limit.
+    file.slice(offset, offset + 192 * 1024).arrayBuffer().then((buffer) => {
+      let binary = "";
+      for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
+      respond({ ok: true, name: file.name, mime: file.type, size: file.size,
+        lastModified: file.lastModified, offset, data: btoa(binary) });
+    }).catch(() => respond({ ok: false, error: "Could not read the converted file." }));
+    return true;
+  });
 
   if (drop) {
     ["dragenter", "dragover"].forEach((type) => {

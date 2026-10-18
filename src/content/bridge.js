@@ -32,6 +32,68 @@
   let badgeRaf = 0;
   let processingDepth = 0;
 
+  // Only a real user drop may request a manual result. Page scripts cannot use
+  // the message bridge to retrieve files merely by knowing a result identifier.
+  const manualDrops = new Map();
+  window.addEventListener("drop", (event) => {
+    if (!event.isTrusted || !event.dataTransfer) return;
+    const dt = event.dataTransfer;
+    const text = dt.getData("text/plain");
+    const token = dt.getData("application/x-swiftconvert-result") ||
+      (text.startsWith("swiftconvert-result:") ? text.slice(20) : "");
+    if (!/^[0-9a-f-]{36}$/.test(token)) return;
+    const expires = Date.now() + 10000;
+    manualDrops.set(token, expires);
+    setTimeout(() => {
+      if (manualDrops.get(token) === expires) manualDrops.delete(token);
+    }, 10000);
+  }, true);
+
+  function requestManualChunk(token, offset) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("File transfer timed out. Try the drop again.")), 15000);
+      chrome.runtime.sendMessage({ type: "manual-drag-chunk", token, offset }, (response) => {
+        clearTimeout(timer);
+        const error = chrome.runtime.lastError;
+        if (error || !response || !response.ok) {
+          reject(new Error(response && response.error || "File transfer failed. Keep the Tools panel open."));
+        } else resolve(response);
+      });
+    });
+  }
+
+  async function receiveManualDrop(payload) {
+    const { id, token } = payload || {};
+    const expires = manualDrops.get(token);
+    manualDrops.delete(token);
+    if (!expires || expires < Date.now()) return;
+    try {
+      let offset = 0;
+      let bytes;
+      let meta;
+      do {
+        const chunk = await requestManualChunk(token, offset);
+        if (!meta) {
+          if (!Number.isSafeInteger(chunk.size) || chunk.size < 0) throw new Error("Invalid file size.");
+          meta = chunk;
+          bytes = new Uint8Array(chunk.size);
+        }
+        const binary = atob(chunk.data);
+        if (chunk.offset !== offset || chunk.size !== meta.size ||
+            binary.length > 192 * 1024 || offset + binary.length > bytes.length ||
+            (!binary.length && offset < bytes.length)) throw new Error("Incomplete file transfer.");
+        for (let i = 0; i < binary.length; i++) bytes[offset + i] = binary.charCodeAt(i);
+        offset += binary.length;
+      } while (offset < bytes.length);
+      window.postMessage({ source: CHANNEL, direction: "bridge-to-page",
+        type: "manual-drag-result", payload: { id, file: { name: meta.name,
+          type: meta.mime, lastModified: meta.lastModified, bytes: bytes.buffer } } }, "*", [bytes.buffer]);
+    } catch (error) {
+      window.postMessage({ source: CHANNEL, direction: "bridge-to-page",
+        type: "manual-drag-result", payload: { id, error: error.message } }, "*");
+    }
+  }
+
   /** @type {HTMLIFrameElement | null} */
   let convertFrame = null;
   let convertReady = null;
@@ -162,6 +224,12 @@
     if (data.source !== CHANNEL || data.direction !== "page-to-bridge") return;
 
     switch (data.type) {
+      case "manual-drag":
+        receiveManualDrop(data.payload);
+        break;
+      case "manual-drag-error":
+        showQuietToast({ error: data.payload && data.payload.message });
+        break;
       case "ready":
       case "hooked":
         sendSettingsToPage();
@@ -418,7 +486,7 @@
   window.addEventListener("resize", scheduleBadgeRefresh);
 
   function showQuietToast(payload) {
-    if (!settings.showQuietBadge) return;
+    if (!settings.showQuietBadge && !(payload && payload.error)) return;
     const root = ensureHost();
     let toast = root.getElementById("sc-toast");
     if (!toast) {
@@ -446,9 +514,10 @@
       root.appendChild(toast);
     }
     toast.querySelector("span").textContent = formatQuietMessage(payload);
+    toast.setAttribute("role", payload && payload.error ? "alert" : "status");
     toast.classList.add("show");
     clearTimeout(quietTimer);
-    quietTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+    quietTimer = setTimeout(() => toast.classList.remove("show"), payload && payload.error ? 8000 : 2200);
   }
 
   function setProcessing(active, opts) {
@@ -551,6 +620,7 @@
 
   function formatQuietMessage(payload) {
     if (!payload) return "SwiftConvert";
+    if (payload.error) return payload.error;
     if (payload.compressed && payload.from && payload.to && payload.from !== payload.to) {
       const sizes =
         payload.fromBytes && payload.toBytes

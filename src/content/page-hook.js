@@ -72,6 +72,8 @@
   let previewSeq = 0;
   const pendingHostConvert = new Map();
   let hostConvertSeq = 0;
+  const pendingManualDrops = new Map();
+  let manualDropSeq = 0;
 
   /** @type {WeakMap<HTMLInputElement, string>} site accept before picker expansion */
   const savedAccept = new WeakMap();
@@ -90,6 +92,23 @@
     if (data.type === "settings") {
       settings = { ...settings, ...data.payload };
       refreshCoverageMarks();
+    }
+    if (data.type === "manual-drag-result") {
+      const { id, file, error } = data.payload || {};
+      const entry = pendingManualDrops.get(id);
+      if (!entry) return;
+      pendingManualDrops.delete(id);
+      clearTimeout(entry.timer);
+      if (error || !file) {
+        if (entry.ctx.input) restoreAcceptAfterPicker(entry.ctx.input);
+        postToBridge("manual-drag-error", { message: error || "File transfer failed." });
+        return;
+      }
+      const result = new File([file.bytes], file.name, {
+        type: file.type || "", lastModified: file.lastModified
+      });
+      if (entry.ctx.input) restoreAcceptAfterPicker(entry.ctx.input);
+      deliverConvertedDrop(entry.event, [result], entry.ctx);
     }
     if (data.type === "preview-result") {
       const { id, accepted } = data.payload || {};
@@ -858,8 +877,27 @@
     "drop",
     (event) => {
       if (event.__swiftconvert) return;
-      if (!autoPipelineActive()) return;
       const dt = event.dataTransfer;
+      if (dt && event.isTrusted) {
+        const text = dt.getData("text/plain");
+        const token = dt.getData("application/x-swiftconvert-result") ||
+          (text.startsWith("swiftconvert-result:") ? text.slice(20) : "");
+        if (/^[0-9a-f-]{36}$/.test(token)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          const id = ++manualDropSeq;
+          const ctx = resolveDropContext(event);
+          const timer = setTimeout(() => {
+            pendingManualDrops.delete(id);
+            if (ctx.input) restoreAcceptAfterPicker(ctx.input);
+            postToBridge("manual-drag-error", { message: "File transfer timed out. Keep the Tools panel open and try again." });
+          }, 60000);
+          pendingManualDrops.set(id, { event, ctx, timer });
+          postToBridge("manual-drag", { id, token });
+          return;
+        }
+      }
+      if (!autoPipelineActive()) return;
       if (!dt || !dt.files || !dt.files.length) return;
 
       const ctx = resolveDropContext(event);
@@ -889,6 +927,12 @@
 
   // Expand accept during drag-over on file inputs; conversion uses savedAccept via effectiveAccept.
   function onDragOverFileInput(event) {
+    const types = Array.from(event.dataTransfer && event.dataTransfer.types || []);
+    if (types.includes("application/x-swiftconvert-result") ||
+        (types.includes("text/plain") && resolveDropContext(event).input)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    }
     if (settings.autoConvert === false) return;
     const input = resolveDropContext(event).input;
     if (input) prepareAcceptForPicker(input);

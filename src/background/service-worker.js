@@ -50,6 +50,25 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg && msg.type === "manual-drag-chunk") {
+    if (_sender.id !== chrome.runtime.id || !_sender.tab ||
+        !/^(https?:|file:)/.test(_sender.url || "") ||
+        !/^[0-9a-f-]{36}$/.test(msg.token || "") ||
+        !Number.isSafeInteger(msg.offset) || msg.offset < 0) {
+      sendResponse({ ok: false, error: "Invalid drag request." });
+      return false;
+    }
+    // Extension pages retain the accepted result in memory. Forward only its
+    // identifier and byte offset, rather than trusting a URL supplied by a site.
+    chrome.runtime.sendMessage({ type: "manual-drag-source", token: msg.token,
+      offset: msg.offset }, (response) => {
+      const error = chrome.runtime.lastError;
+      sendResponse(error || !response ? {
+        ok: false, error: "The result is no longer available. Keep the Tools panel open and convert again."
+      } : response);
+    });
+    return true;
+  }
   if (msg && msg.type === "converted") {
     // Brief badge pulse
     chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
